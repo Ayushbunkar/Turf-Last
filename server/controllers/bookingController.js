@@ -14,7 +14,12 @@ import { alertSyntheticOrder } from '../utils/alerts.js';
 export const createBooking = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-  const { turfId, slot, date } = req.body;
+  let { turfId, turfName, slot, date } = req.body;
+    // If turfName provided instead of turfId, try to resolve
+    if (!turfId && turfName) {
+      const found = await Turf.findOne({ name: turfName });
+      if (found) turfId = found._id;
+    }
     logger.info('createBooking request', { user: req.user?._id, turfId, slot, date });
 
     const turf = await Turf.findById(turfId);
@@ -56,6 +61,11 @@ export const createBooking = async (req, res) => {
   const pendingTTL = Number(process.env.PENDING_BOOKING_TTL) || 900;
   const expiresAt = new Date(booking.createdAt.getTime() + pendingTTL * 1000);
   logger.info('Booking created', { bookingId: booking._id, user: req.user?._id, turf: turfId, date });
+  // Emit socket event to superadmin room
+  try {
+    const io = req.app && req.app.get('io');
+    if (io) io.to('superadmin').emit('bookingCreated', { bookingId: booking._id, turf: turfId, date });
+  } catch (e) { logger.warn('Socket emit failed for bookingCreated', e.message); }
   res.status(201).json({ message: "Booking created", booking, expiresAt: expiresAt.toISOString() });
     // Do NOT send confirmation email yet; confirmation should be sent only after payment is verified.
   } catch (error) {
@@ -67,7 +77,11 @@ export const createBooking = async (req, res) => {
 export const createBatchBooking = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-    const { turfId, slots, date } = req.body; // slots: [{ startTime, endTime }, ...]
+    let { turfId, turfName, slots, date } = req.body; // slots: [{ startTime, endTime }, ...]
+    if (!turfId && turfName) {
+      const found = await Turf.findOne({ name: turfName });
+      if (found) turfId = found._id;
+    }
 
     if (!Array.isArray(slots) || slots.length === 0) return res.status(400).json({ message: 'Slots required' });
 
@@ -165,7 +179,11 @@ export const updateBookingStatus = async (req, res) => {
 
     booking.status = status;
     await booking.save();
-
+    // Emit socket update for booking status update
+    try {
+      const io = req.app && req.app.get('io');
+      if (io) io.to('superadmin').emit('bookingUpdated', { bookingId: booking._id, status });
+    } catch (e) { logger.warn('Socket emit failed for bookingUpdated', e.message); }
     res.json({ message: "Booking updated", booking });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -175,12 +193,27 @@ export const updateBookingStatus = async (req, res) => {
 // 🟡 SUPERADMIN: Get All Bookings
 export const getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find()
-      .populate("user", "name email")
-      .populate("turf", "name location")
-      .sort({ createdAt: -1 });
+    const { page = 1, limit = 100, status = '', turf = '' } = req.query;
+    const query = {};
+    if (status) query.status = status;
+    if (turf) {
+      if (/^[0-9a-fA-F]{24}$/.test(turf)) {
+        query.turf = turf;
+      } else {
+        const found = await Turf.findOne({ name: turf });
+        if (found) query.turf = found._id;
+      }
+    }
 
-    res.json(bookings);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const bookingsRaw = await Booking.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate("user", "name email")
+      .populate("turf", "name location");
+
+    res.json(bookingsRaw);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -189,19 +222,34 @@ export const getAllBookings = async (req, res) => {
 // Public: get bookings for a specific turf, optional ?date=YYYY-MM-DD
 export const getBookingsForTurf = async (req, res) => {
   try {
-    const { turfId } = req.params;
+    let { turfId } = req.params;
+    // If turfId does not look like an ObjectId, try resolve by name
+    if (turfId && !/^[0-9a-fA-F]{24}$/.test(turfId)) {
+      const maybe = await Turf.findOne({ name: turfId });
+      if (maybe) turfId = maybe._id;
+    }
     const { date } = req.query;
     const filter = { turf: turfId };
     if (date) filter.date = date;
     // only return confirmed/paid bookings that block slots
     filter.status = { $in: ["confirmed", "paid"] };
 
-    const bookings = await Booking.find(filter).select('slots date status user turf').lean();
+    const bookings = await Booking.find(filter)
+      .select('slots date status user turf')
+      .populate('turf', 'name location')
+      .lean();
 
     // flatten slots so each returned item has a single `slot` field for backwards compatibility
     const flattened = [];
     bookings.forEach((b) => {
-      const base = { bookingId: b._id, date: b.date, status: b.status, turf: b.turf, user: b.user };
+      const base = {
+        bookingId: b._id,
+        date: b.date,
+        status: b.status,
+        turf: b.turf, // may be populated object or id
+        turfName: b.turf ? (b.turf.name || (typeof b.turf === 'string' ? b.turf : '')) : '',
+        user: b.user,
+      };
       (b.slots || []).forEach((s) => {
         flattened.push({ ...base, slot: s });
       });
@@ -375,6 +423,11 @@ export const verifyPayment = async (req, res) => {
 
       booking.status = "paid"; // mark as paid
       await booking.save();
+      // Emit socket update: booking paid
+      try {
+        const io = req.app && req.app.get('io');
+        if (io) io.to('superadmin').emit('bookingUpdated', { bookingId: booking._id, status: 'paid' });
+      } catch (e) { logger.warn('Socket emit failed for bookingUpdated (payment)', e.message); }
 
       // send confirmation email
       // compose human-friendly slot/time text from slots array

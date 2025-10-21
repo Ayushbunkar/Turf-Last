@@ -14,6 +14,8 @@ import {
 	getEmailAnalytics,
 	getEmailStats
 } from '../controllers/superadminController.js';
+import multer from 'multer';
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = express.Router();
 
@@ -59,6 +61,15 @@ router.get('/turfs/statistics', verifySuperAdmin, getTurfStats);
 // Bookings endpoints for superadmin dashboard
 router.get('/bookings', verifySuperAdmin, getAllBookings);
 router.get('/bookings/statistics', verifySuperAdmin, getBookingStatistics);
+// CSV import for bookings (upload CSV file)
+router.post('/bookings/import', verifySuperAdmin, upload.single('file'), async (req, res, next) => {
+	try {
+		const { importBookingsCSV } = await import('../controllers/superadminController.js');
+		return importBookingsCSV(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
 
 // Turf admins endpoints for superadmin dashboard
 router.get('/turfadmins', verifySuperAdmin, getTurfAdmins);

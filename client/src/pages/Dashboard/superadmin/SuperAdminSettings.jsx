@@ -26,8 +26,7 @@ import {
   FileText,
   Camera
 } from "lucide-react";
-import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
-import SuperAdminNavbar from './SuperAdminNavbar';
+import SuperAdminPageTemplate from './SuperAdminPageTemplate';
 import toast from 'react-hot-toast';
 import superAdminService from '../../../services/superAdminService';
 
@@ -275,44 +274,19 @@ const SuperAdminSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <SuperAdminSidebar />
-      <div className="flex-1 lg:ml-80">
-          <SuperAdminNavbar />
-          <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
-            <div className="flex items-center justify-center h-96">
-              <div className="flex items-center space-x-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-                <span className="text-lg text-gray-600">Loading settings...</span>
-              </div>
-            </div>
-          </main>
+      <SuperAdminPageTemplate title="Settings" subtitle="Manage platform settings and configurations">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-lg text-gray-600">Loading settings...</span>
+          </div>
         </div>
-      </div>
+      </SuperAdminPageTemplate>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Mobile Sidebar Overlay */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
-      
-      {/* Sidebar */}
-      <SuperAdminSidebar 
-        isMobileOpen={isMobileSidebarOpen} 
-        onMobileClose={() => setIsMobileSidebarOpen(false)} 
-      />
-      
-      {/* Main Content */}
-      <div className="flex-1 lg:ml-80">
-        <SuperAdminNavbar onMobileMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
-        
-        <main className="p-4 lg:p-8 pb-4 pt-48 min-h-screen">
+    <SuperAdminPageTemplate title="Settings" subtitle="Manage platform settings and configurations">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -770,9 +744,7 @@ const SuperAdminSettings = () => {
               </motion.div>
             )}
           </AnimatePresence>
-        </main>
-      </div>
-    </div>
+    </SuperAdminPageTemplate>
   );
 };
 

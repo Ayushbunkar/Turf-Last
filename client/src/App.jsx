@@ -55,9 +55,11 @@ const SuperAdminUsers = lazy(() =>
 const SuperAdminTurfAdmins = lazy(() =>
   import("./pages/Dashboard/superadmin/SuperAdminTurfAdmins.jsx")
 );
-const SuperAdminTurfs = lazy(() =>
-  import("./pages/Dashboard/superadmin/SuperAdminTurfs.jsx")
+const SuperAdminTurfsandVenues = lazy(() =>
+  import("./pages/Dashboard/superadmin/SuperAdminTurfsandVenues.jsx")
 );
+// Keep SuperAdminTurfs as an alias for the turfs route to reuse the TurfsAndVenues page
+const SuperAdminTurfs = SuperAdminTurfsandVenues;
 const SuperAdminBookings = lazy(() =>
   import("./pages/Dashboard/superadmin/SuperAdminBookings.jsx")
 );
@@ -88,7 +90,6 @@ import ValidateRazorpay from './pages/Admin/ValidateRazorpay';
 import SuperAdminNavbar from "./pages/Dashboard/superadmin/SuperAdminNavbar";
 import SuperAdminPageTemplate from "./pages/Dashboard/superadmin/SuperAdminPageTemplate";
 // import SuperAdminSidebar from "./pages/Dashboard/superadmin/SuperAdminSidebar";
-import SuperAdminTurfsandVenues from "./pages/Dashboard/superadmin/SuperAdminTurfsandVenues";
 import SystemAnalytics from "./pages/Dashboard/superadmin/SystemAnalytics";
 
 import { AuthProvider } from "./context/AuthContext";

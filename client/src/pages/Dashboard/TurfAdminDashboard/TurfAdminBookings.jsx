@@ -11,6 +11,7 @@ import {
 
 // === MOCK DATA & SERVICES ===
 import api from '../../../config/Api';
+import { exportBookings as exportBookingsServiceFromClient } from '../../../services/bookingService';
 
 // Real API services
 const fetchTurfsService = async () => {
@@ -28,9 +29,10 @@ const updateBookingStatus = async (id, payload) => {
   return res.data;
 };
 
+// Keep API endpoint call for server-side export if needed, but use client-side exporter by default
 const exportBookingsService = async (params) => {
-  const res = await api.get(`/api/bookings/export?${params}`);
-  return res.data;
+  // fall back to server export if desired: return await api.get(`/api/bookings/export?${params}`);
+  return exportBookingsServiceFromClient(params);
 };
 
 // === HELPER FUNCTIONS ===

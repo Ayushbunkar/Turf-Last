@@ -28,8 +28,7 @@ import {
   Headphones
 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
-import SuperAdminNavbar from './SuperAdminNavbar';
+import SuperAdminPageTemplate from './SuperAdminPageTemplate';
 import superAdminService from '../../../services/superAdminService';
 import toast from 'react-hot-toast';
 
@@ -278,31 +277,19 @@ const SuperAdminSupport = () => {
 
   if (loading && tickets.length === 0) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <SuperAdminSidebar />
-      <div className="flex-1 lg:ml-80">
-          <SuperAdminNavbar />
-          <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
-            <div className="flex items-center justify-center h-96">
-              <div className="flex items-center space-x-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-                <span className="text-lg text-gray-600">Loading support system...</span>
-              </div>
-            </div>
-          </main>
+      <SuperAdminPageTemplate title="Support Management" subtitle="Manage customer support tickets and inquiries">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-lg text-gray-600">Loading support system...</span>
+          </div>
         </div>
-      </div>
+      </SuperAdminPageTemplate>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <SuperAdminSidebar />
-      
-      <div className="flex-1 lg:ml-80">
-        <SuperAdminNavbar />
-        
-        <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
+    <SuperAdminPageTemplate title="Support Management" subtitle="Manage customer support tickets and inquiries">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -672,10 +659,7 @@ const SuperAdminSupport = () => {
                 </div>
               </div>
             )}
-          </div>
-        </main>
       </div>
-
       {/* Ticket Detail Modal */}
       <AnimatePresence>
         {showTicketModal && selectedTicket && (
@@ -813,7 +797,7 @@ const SuperAdminSupport = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </SuperAdminPageTemplate>
   );
 };
 

@@ -113,7 +113,7 @@ const SuperAdminTurfAdminsPage = () => {
   return (
     <SuperAdminPageTemplate>
       <div className="bg-white rounded-xl shadow p-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Super Admin Dashboard: Turf Admins</h1>
+        <h1 className="text-3xl font-extrabold text-gray-900">Super Admin Dashboard: Turf Admins</h1>
 
         {/* Stats Cards */}
         <h2 className="text-xl font-semibold text-gray-700 mb-4">Stats Overview</h2>

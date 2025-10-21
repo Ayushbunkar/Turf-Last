@@ -26,8 +26,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
-import SuperAdminNavbar from './SuperAdminNavbar';
+import SuperAdminPageTemplate from './SuperAdminPageTemplate';
 import superAdminService from '../../../services/superAdminService';
 import toast from 'react-hot-toast';
 
@@ -237,55 +236,42 @@ const SuperAdminDatabase = () => {
 
   if (loading && tables.length === 0) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <SuperAdminSidebar />
-      <div className="flex-1 lg:ml-80">
-          <SuperAdminNavbar />
-          <main className="p-4 lg:p-12 pb-4 pt-32 lg:pt-40 min-h-screen">
-            <div className="flex items-center justify-center h-96">
-              <div className="flex items-center space-x-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-                <span className="text-lg text-gray-600">Loading database information...</span>
-              </div>
-            </div>
-          </main>
+      <SuperAdminPageTemplate title="Database Management" subtitle="Monitor and manage database operations">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-lg text-gray-600">Loading database information...</span>
+          </div>
         </div>
-      </div>
+      </SuperAdminPageTemplate>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <SuperAdminSidebar />
-      
-      <div className="flex-1 lg:ml-80">
-        <SuperAdminNavbar />
-        
-        <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Database Management</h1>
-              <p className="text-gray-600 mt-1">Monitor and manage database operations</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={fetchDatabaseInfo}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Refresh</span>
-              </button>
-              <button
-                onClick={() => setShowBackupModal(true)}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span>Create Backup</span>
-              </button>
-            </div>
-          </div>
-
+    <SuperAdminPageTemplate title="Database Management" subtitle="Monitor and manage database operations">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Database Management</h1>
+          <p className="text-gray-600 mt-1">Monitor and manage database operations</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={fetchDatabaseInfo}
+            className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowBackupModal(true)}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span>Create Backup</span>
+          </button>
+        </div>
+      </div>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {statCards.map((card, index) => {
@@ -779,10 +765,7 @@ const SuperAdminDatabase = () => {
                 </div>
               )}
             </div>
-          </div>
-        </main>
       </div>
-
       {/* Create Backup Modal */}
       <AnimatePresence>
         {showBackupModal && (
@@ -880,8 +863,8 @@ const SuperAdminDatabase = () => {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
-    </div>
+    </AnimatePresence>
+    </SuperAdminPageTemplate>
   );
 };
 

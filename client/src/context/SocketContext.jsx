@@ -13,9 +13,27 @@ export const SocketProvider = ({ children, userId }) => {
   const newSocket = io("http://localhost:4500"); // Port now matches backend
     setSocket(newSocket);
 
-    // Join a room for this user
-    if (userId) {
-      newSocket.emit("joinRoom", userId);
+    // Determine current user from localStorage if not passed
+    let currentUser = null;
+    try {
+      const raw = localStorage.getItem('user');
+      if (raw) currentUser = JSON.parse(raw);
+    } catch (e) {
+      currentUser = null;
+    }
+
+    // Join a room for this user (personal room)
+    const uid = userId || currentUser?._id;
+    if (uid) {
+      newSocket.emit('joinRoom', uid);
+      console.debug('Socket: join personal room', uid);
+    }
+
+    // If user is a superadmin, also join the shared 'superadmin' room
+    const role = currentUser?.role;
+    if (role === 'superadmin') {
+      newSocket.emit('joinRoom', 'superadmin');
+      console.debug('Socket: join superadmin room');
     }
 
     // Listen for notifications

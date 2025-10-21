@@ -101,7 +101,8 @@ export const updateTurf = async (req, res) => {
     if (!turf) return res.status(404).json({ message: "Turf not found" });
 
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-    if (turf.admin.toString() !== req.user?._id.toString()) {
+    // Allow superadmin to update any turf; otherwise ensure owner matches
+    if (req.user?.role !== 'superadmin' && turf.admin.toString() !== req.user?._id.toString()) {
       return res.status(403).json({ message: "Not authorized to edit this turf" });
     }
 
@@ -122,7 +123,8 @@ export const deleteTurf = async (req, res) => {
     if (!turf) return res.status(404).json({ message: "Turf not found" });
 
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-    if (turf.admin.toString() !== req.user?._id.toString()) {
+    // Allow superadmin to delete any turf; otherwise ensure owner matches
+    if (req.user?.role !== 'superadmin' && turf.admin.toString() !== req.user?._id.toString()) {
       return res.status(403).json({ message: "Not authorized to delete this turf" });
     }
 
@@ -133,6 +135,32 @@ export const deleteTurf = async (req, res) => {
   }
 };
 
+// 🔴 BLOCK TURF (SuperAdmin Only)
+export const blockTurf = async (req, res) => {
+  try {
+    const turf = await Turf.findById(req.params.id);
+    if (!turf) return res.status(404).json({ message: "Turf not found" });
+
+    turf.isApproved = false;
+    await turf.save();
+
+    res.json({ message: "Turf blocked successfully", turf });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+  // Optionally notify turf admin asynchronously
+  try {
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      await sendEmail({
+        to: turf.admin?.email,
+        subject: "Turf Blocked",
+        text: `Hi ${turf?.admin?.name || 'Admin'}, your turf has been blocked by SuperAdmin.`,
+      });
+    }
+  } catch (mailErr) {
+    console.warn('blockTurf email failed:', mailErr?.message || mailErr);
+  }
+};
 // � APPROVE TURF (SuperAdmin Only)
 
 // �🟡 SUPERADMIN - APPROVE TURF

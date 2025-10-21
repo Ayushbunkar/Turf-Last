@@ -554,10 +554,12 @@ export async function getAllTurfs(req, res) {
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Populate the 'admin' field to get owner info
     const turfsRaw = await Turf.find(query)
       .sort(sort)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .populate('admin', 'name email');
     const totalTurfs = await Turf.countDocuments(query);
     const totalPages = Math.ceil(totalTurfs / parseInt(limit));
 
@@ -567,8 +569,14 @@ export async function getAllTurfs(req, res) {
       const bookings = await Booking.find({ turf: turf._id });
       const totalBookings = bookings.length;
       const revenue = bookings.reduce((sum, b) => sum + (b.price || 0), 0);
+      // Map owner info from populated admin
+      const turfObj = turf.toObject();
       return {
-        ...turf.toObject(),
+        ...turfObj,
+        owner: turfObj.admin ? {
+          name: turfObj.admin.name,
+          email: turfObj.admin.email
+        } : null,
         totalBookings,
         revenue
       };
@@ -1138,51 +1146,55 @@ export async function updateSecuritySettings(req, res) {
 }
 
 export async function getAnalytics(req, res) {
-  // Example: fetch analytics data from DB/services
   try {
-    // Real aggregation logic
-    // Time range support (default: last 7 days)
     const { timeRange = '7d' } = req.query;
-    let startDate = new Date();
-    if (timeRange === '7d') startDate.setDate(startDate.getDate() - 7);
-    else if (timeRange === '30d') startDate.setDate(startDate.getDate() - 30);
-    else if (timeRange === '90d') startDate.setDate(startDate.getDate() - 90);
-    else startDate.setDate(startDate.getDate() - 7);
+    let days = 7;
+    if (timeRange === '30d') days = 30;
+    else if (timeRange === '90d') days = 90;
+    else if (timeRange === '1y') days = 365;
 
-    // Overview
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - days);
+    const prevStart = new Date(startDate);
+    prevStart.setDate(startDate.getDate() - days);
+
+    // Overview metrics
     const totalBookings = await Booking.countDocuments({});
-    const totalRevenue = await Booking.aggregate([
-      { $group: { _id: null, total: { $sum: "$amountPaid" } } }
+    const totalRevenueAgg = await Booking.aggregate([
+      { $match: { status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
+    const totalRevenue = totalRevenueAgg[0]?.total || 0;
     const totalUsers = await User.countDocuments({});
     const totalTurfs = await Turf.countDocuments({});
 
-    // Growth metrics (compare previous period)
-    const prevStartDate = new Date(startDate);
-    prevStartDate.setDate(prevStartDate.getDate() - (timeRange === '30d' ? 30 : 7));
-    const bookingsCurrent = await Booking.countDocuments({ createdAt: { $gte: startDate } });
-    const bookingsPrev = await Booking.countDocuments({ createdAt: { $gte: prevStartDate, $lt: startDate } });
+    // Period comparisons for growth metrics
+    const bookingsCurrent = await Booking.countDocuments({ createdAt: { $gte: startDate, $lte: now } });
+    const bookingsPrev = await Booking.countDocuments({ createdAt: { $gte: prevStart, $lt: startDate } });
+
     const revenueCurrentAgg = await Booking.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      { $group: { _id: null, total: { $sum: "$amountPaid" } } }
+      { $match: { createdAt: { $gte: startDate, $lte: now }, status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
     const revenuePrevAgg = await Booking.aggregate([
-      { $match: { createdAt: { $gte: prevStartDate, $lt: startDate } } },
-      { $group: { _id: null, total: { $sum: "$amountPaid" } } }
+      { $match: { createdAt: { $gte: prevStart, $lt: startDate }, status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
-    const usersCurrent = await User.countDocuments({ createdAt: { $gte: startDate } });
-    const usersPrev = await User.countDocuments({ createdAt: { $gte: prevStartDate, $lt: startDate } });
-    const turfsCurrent = await Turf.countDocuments({ createdAt: { $gte: startDate } });
-    const turfsPrev = await Turf.countDocuments({ createdAt: { $gte: prevStartDate, $lt: startDate } });
 
-    function growth(current, prev) {
-      if (prev === 0) return current > 0 ? 100 : 0;
+    const usersCurrent = await User.countDocuments({ createdAt: { $gte: startDate, $lte: now } });
+    const usersPrev = await User.countDocuments({ createdAt: { $gte: prevStart, $lt: startDate } });
+    const turfsCurrent = await Turf.countDocuments({ createdAt: { $gte: startDate, $lte: now } });
+    const turfsPrev = await Turf.countDocuments({ createdAt: { $gte: prevStart, $lt: startDate } });
+
+    const growth = (current, prev) => {
+      if (!prev || prev === 0) return current > 0 ? 100 : 0;
       return Math.round(((current - prev) / prev) * 100);
-    }
+    };
 
     const overview = {
       totalBookings,
-      totalRevenue: totalRevenue[0]?.total || 0,
+      totalRevenue,
       totalUsers,
       totalTurfs,
       growthMetrics: {
@@ -1193,53 +1205,80 @@ export async function getAnalytics(req, res) {
       }
     };
 
-    // Trends (last 7/30/90 days)
-    const bookingTrends = await Booking.aggregate([
+    // Booking trends (daily) with revenue per day
+    const bookingTrendsAgg = await Booking.aggregate([
       { $match: { createdAt: { $gte: startDate } } },
-      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, bookings: { $sum: 1 }, revenue: { $sum: '$price' } } },
       { $sort: { _id: 1 } }
     ]);
-    const revenueTrends = await Booking.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, total: { $sum: "$amountPaid" } } },
+    const bookingTrends = bookingTrendsAgg.map(b => ({ date: b._id, bookings: b.bookings || 0, revenue: b.revenue || 0 }));
+
+    // Revenue trends (monthly for last 12 months)
+    const revenuePeriodStart = new Date(now);
+    revenuePeriodStart.setMonth(now.getMonth() - 11);
+    const revenueTrendsAgg = await Booking.aggregate([
+      { $match: { createdAt: { $gte: revenuePeriodStart }, status: 'paid' } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } }, revenue: { $sum: '$price' } } },
       { $sort: { _id: 1 } }
     ]);
-    const userRegistrations = await User.aggregate([
+    const revenueTrends = revenueTrendsAgg.map(r => ({ month: r._id, revenue: r.revenue || 0 }));
+
+    // User registrations (daily)
+    const userRegistrationsAgg = await User.aggregate([
       { $match: { createdAt: { $gte: startDate } } },
-      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, users: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ]);
-    // Turf performance: aggregate bookings and revenue per turf
-    const turfPerformance = await Booking.aggregate([
-      { $group: {
-          _id: "$turf", // assuming Booking has a turf field
-          bookings: { $sum: 1 },
-          revenue: { $sum: "$amountPaid" }
-        }
-      },
+    const userRegistrations = userRegistrationsAgg.map(u => ({ date: u._id, users: u.users || 0 }));
+
+    // Turf performance
+    const turfPerformanceAgg = await Booking.aggregate([
+      { $group: { _id: '$turf', bookings: { $sum: 1 }, revenue: { $sum: '$price' } } },
       { $sort: { bookings: -1 } },
       { $limit: 10 },
-      { $lookup: {
-          from: "turfs",
-          localField: "_id",
-          foreignField: "_id",
-          as: "turfInfo"
-        }
-      },
-      { $unwind: "$turfInfo" },
-      { $project: {
-          name: "$turfInfo.name",
-          bookings: 1,
-          revenue: 1
-        }
-      }
+      { $lookup: { from: 'turfs', localField: '_id', foreignField: '_id', as: 'turfInfo' } },
+      { $unwind: { path: '$turfInfo', preserveNullAndEmptyArrays: true } },
+      { $project: { name: '$turfInfo.name', bookings: 1, revenue: 1 } }
     ]);
+    const turfPerformance = turfPerformanceAgg.map(t => ({ name: t.name || 'Unknown', bookings: t.bookings || 0, revenue: t.revenue || 0 }));
 
-    // Placeholders for additional analytics
-    const geographicDistribution = [];
-    const paymentMethods = [];
-    const popularSports = [];
-    const peakHours = [];
+    // Payment methods distribution
+    const paymentMethodsAgg = await Booking.aggregate([
+      { $match: { 'payment.method': { $exists: true, $ne: null } } },
+      { $group: { _id: '$payment.method', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    const totalPaymentCount = paymentMethodsAgg.reduce((s, p) => s + (p.count || 0), 0) || 0;
+    const paymentMethods = paymentMethodsAgg.map(p => ({ method: p._id || 'Unknown', count: p.count || 0, percentage: totalPaymentCount ? Math.round((p.count / totalPaymentCount) * 100) : 0 }));
+
+    // Popular sports (group by turf category)
+    const popularSportsAgg = await Booking.aggregate([
+      { $lookup: { from: 'turfs', localField: 'turf', foreignField: '_id', as: 'turfInfo' } },
+      { $unwind: { path: '$turfInfo', preserveNullAndEmptyArrays: true } },
+      { $group: { _id: '$turfInfo.category', bookings: { $sum: 1 } } },
+      { $sort: { bookings: -1 } }
+    ]);
+    const popularSports = popularSportsAgg.map(s => ({ sport: s._id || 'Unknown', bookings: s.bookings || 0 }));
+
+    // Peak hours (use slots.startTime if available, else createdAt hour)
+    const peakHoursAgg = await Booking.aggregate([
+      { $unwind: { path: '$slots', preserveNullAndEmptyArrays: true } },
+      { $project: { hour: { $cond: [ { $ifNull: ['$slots.startTime', false] }, { $substr: ['$slots.startTime', 0, 2] }, { $dateToString: { format: '%H', date: '$createdAt' } } ] } } },
+      { $group: { _id: '$hour', bookings: { $sum: 1 } } },
+      { $sort: { bookings: -1 } },
+      { $limit: 24 }
+    ]);
+    const peakHours = peakHoursAgg.map(p => ({ hour: String(p._id), bookings: p.bookings || 0 }));
+
+    // Geographic distribution (by turf location)
+    const geographicAgg = await Booking.aggregate([
+      { $lookup: { from: 'turfs', localField: 'turf', foreignField: '_id', as: 'turfInfo' } },
+      { $unwind: { path: '$turfInfo', preserveNullAndEmptyArrays: true } },
+      { $group: { _id: '$turfInfo.location', bookings: { $sum: 1 } } },
+      { $sort: { bookings: -1 } },
+      { $limit: 10 }
+    ]);
+    const geographicDistribution = geographicAgg.map(g => ({ city: g._id || 'Unknown', users: g.bookings || 0, percentage: totalBookings ? Math.round((g.bookings / totalBookings) * 100) : 0 }));
 
     res.json({
       overview,
@@ -1334,7 +1373,15 @@ export async function getAllBookings(req, res) {
     const { page = 1, limit = 10, dateRange = '', status = '', turf = '', user = '' } = req.query;
     const query = {};
     if (status) query.status = status;
-    if (turf) query.turf = turf;
+    if (turf) {
+      // turf may be an ObjectId string or a name
+      if (/^[0-9a-fA-F]{24}$/.test(turf)) {
+        query.turf = turf;
+      } else {
+        const found = await Turf.findOne({ name: turf });
+        if (found) query.turf = found._id;
+      }
+    }
     if (user) query.user = user;
     if (dateRange === 'today') {
       const start = new Date();
@@ -1343,22 +1390,35 @@ export async function getAllBookings(req, res) {
       end.setHours(23, 59, 59, 999);
       query.createdAt = { $gte: start, $lte: end };
     }
-    // Add more dateRange options as needed
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Populate user and turf (including turf.admin name/email)
     const bookingsRaw = await Booking.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('user', 'name email')
-      .populate('turf', 'name');
-    const bookings = bookingsRaw.map(b => ({
-      id: b._id,
-      turf: b.turf ? b.turf.name : null,
-      user: b.user ? { name: b.user.name, email: b.user.email } : null,
-      price: b.price || b.amountPaid || 0,
-      status: b.status,
-      createdAt: b.createdAt
-    }));
+      .populate('user', 'name email phone')
+      .populate({ path: 'turf', select: 'name location admin', populate: { path: 'admin', select: 'name email' } });
+
+    const bookings = bookingsRaw.map((b) => {
+      const firstSlot = Array.isArray(b.slots) && b.slots.length ? b.slots[0] : null;
+      return {
+        _id: b._id,
+        user: b.user ? { name: b.user.name, email: b.user.email, phone: b.user.phone || '' } : null,
+        turf: b.turf ? { name: b.turf.name, location: b.turf.location || '', admin: b.turf.admin ? (b.turf.admin.name || b.turf.admin.email) : '' } : { name: '', location: '', admin: '' },
+        bookingDate: b.date || null,
+        timeSlot: firstSlot ? `${firstSlot.startTime} - ${firstSlot.endTime}` : null,
+        duration: Array.isArray(b.slots) ? b.slots.length : 1,
+        amount: b.price || b.amountPaid || 0,
+        status: b.status,
+        paymentStatus: b.payment?.status || 'pending',
+        paymentMethod: b.payment?.method || 'N/A',
+        createdAt: b.createdAt,
+        sport: b.sport || null,
+        players: b.players || null,
+      };
+    });
+
     const totalBookings = await Booking.countDocuments(query);
     const totalPages = Math.ceil(totalBookings / parseInt(limit));
     res.json({ bookings, pagination: { totalPages, totalBookings } });
@@ -1367,15 +1427,132 @@ export async function getAllBookings(req, res) {
   }
 }
 
+// Import bookings from CSV (superadmin) - expects a 'file' multipart form-data
+export async function importBookingsCSV(req, res) {
+  try {
+    const Booking = (await import('../models/Booking.js')).default;
+    const Turf = (await import('../models/Turf.js')).default;
+    const AuditLog = (await import('../models/AuditLog.js')).default;
+    if (!req.user || req.user.role !== 'superadmin') return res.status(403).json({ message: 'Not authorized' });
+    if (!req.file || !req.file.buffer) return res.status(400).json({ message: 'No file uploaded' });
+
+    const text = req.file.buffer.toString('utf8');
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) return res.status(400).json({ message: 'CSV empty' });
+
+    // Parse header
+    const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const required = ['TurfName', 'Date', 'StartTime', 'EndTime', 'UserEmail'];
+    const missing = required.filter(r => !header.includes(r));
+    if (missing.length) return res.status(400).json({ message: 'Missing required columns', missing });
+
+    const results = { total: 0, created: 0, failed: 0, failures: [] };
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      if (row.every(c => c === '')) continue;
+      results.total++;
+      const obj = {};
+      header.forEach((h, idx) => obj[h] = row[idx] ?? '');
+
+      const turfName = obj['TurfName'];
+      const date = obj['Date'];
+      const startTime = obj['StartTime'];
+      const endTime = obj['EndTime'];
+      const userEmail = obj['UserEmail'];
+      const players = parseInt(obj['Players']) || undefined;
+      const amount = parseFloat(obj['Amount']) || undefined;
+
+      // Resolve turf by exact case-insensitive match first
+      let turf = await Turf.findOne({ name: new RegExp(`^${escapeRegExp(turfName)}$`, 'i') });
+      if (!turf) {
+        // fallback: partial match
+        turf = await Turf.findOne({ name: new RegExp(escapeRegExp(turfName), 'i') });
+      }
+      if (!turf) {
+        results.failed++;
+        results.failures.push({ line: i + 1, reason: 'Turf not found', row: obj });
+        continue;
+      }
+
+      // Validate date and times
+      if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date) || !/^[0-9]{2}:[0-9]{2}$/.test(startTime) || !/^[0-9]{2}:[0-9]{2}$/.test(endTime)) {
+        results.failed++;
+        results.failures.push({ line: i + 1, reason: 'Invalid date/time format', row: obj });
+        continue;
+      }
+
+      // Resolve user by email
+      let user = null;
+      if (userEmail) user = await (await import('../models/User.js')).default.findOne({ email: userEmail.toLowerCase() });
+      if (!user) {
+        results.failed++;
+        results.failures.push({ line: i + 1, reason: 'User not found for email', row: obj });
+        continue;
+      }
+
+      // Check conflicts
+      const conflict = await Booking.findOne({
+        turf: turf._id,
+        'slots.startTime': startTime,
+        'slots.endTime': endTime,
+        date,
+        status: { $in: ['pending', 'confirmed', 'paid'] }
+      });
+      if (conflict) {
+        results.failed++;
+        results.failures.push({ line: i + 1, reason: 'Slot conflict', row: obj, conflictBookingId: conflict._id });
+        continue;
+      }
+
+      // Create booking
+      try {
+        const booking = await Booking.create({
+          user: user._id,
+          turf: turf._id,
+          slots: [{ startTime, endTime }],
+          date,
+          price: amount ?? turf.pricePerHour,
+          players: players,
+          status: 'pending'
+        });
+        // Audit log
+        try { await AuditLog.create({ action: 'import_booking', actor: req.user._id, targetBooking: booking._id, meta: { importedFromLine: i + 1 } }); } catch (e) { /* non-fatal */ }
+        results.created++;
+      } catch (err) {
+        results.failed++;
+        results.failures.push({ line: i + 1, reason: 'Create failed', row: obj, error: err.message });
+      }
+    }
+
+    res.json({ message: 'Import completed', results });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to import bookings', details: err.message });
+  }
+}
+
+// utility
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Fetch booking statistics for superadmin dashboard
 export async function getBookingStatistics(req, res) {
   try {
-    const totalBookings = await Booking.countDocuments();
-    const totalRevenueAgg = await Booking.aggregate([
-      { $group: { _id: null, total: { $sum: "$price" } } }
+    // Return counts by status and total revenue for completed bookings
+    const total = await Booking.countDocuments();
+    const confirmed = await Booking.countDocuments({ status: 'confirmed' });
+    const completed = await Booking.countDocuments({ status: 'paid' });
+    const pending = await Booking.countDocuments({ status: 'pending' });
+    const cancelled = await Booking.countDocuments({ status: 'cancelled' });
+
+    const revenueAgg = await Booking.aggregate([
+      { $match: { status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
-    const totalRevenue = totalRevenueAgg[0]?.total || 0;
-    res.json({ totalBookings, totalRevenue });
+    const totalRevenue = revenueAgg[0]?.total || 0;
+
+    res.json({ total, confirmed, completed, pending, cancelled, totalRevenue });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch booking statistics', details: err.message });
   }

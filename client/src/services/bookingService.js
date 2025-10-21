@@ -62,9 +62,46 @@ const bookingService = {
       // No dedicated export endpoint on server; fetch bookings and build CSV client-side
       const bookings = await this.fetchBookings(query);
       if (!bookings || bookings.length === 0) return new Blob([""], { type: 'text/csv' });
+      // Build CSV with human-friendly columns (prefer turf.name over ids)
+      const headers = [
+        'BookingID', 'UserName', 'UserEmail', 'UserPhone', 'TurfName', 'TurfLocation',
+        'BookingDate', 'TimeSlot', 'Duration', 'Amount', 'Status', 'PaymentStatus', 'PaymentMethod'
+      ];
 
-      const headers = Object.keys(bookings[0]).filter(k => typeof bookings[0][k] !== 'object');
-      const rows = bookings.map(b => headers.map(h => `"${String(b[h] ?? '').replace(/"/g, '""')}"`).join(','));
+      const rows = bookings.map((b) => {
+        const userName = b.user?.name || '';
+        const userEmail = b.user?.email || '';
+        const userPhone = b.user?.phone || '';
+        const turfName = (b.turf && (typeof b.turf === 'string' ? b.turf : b.turf.name)) || b.turfName || '';
+        const turfLocation = b.turf?.location || '';
+        const bookingDate = b.bookingDate || b.date || '';
+        const timeSlot = b.timeSlot || (b.slot ? `${b.slot.startTime} - ${b.slot.endTime}` : (Array.isArray(b.slots) && b.slots.length ? `${b.slots[0].startTime} - ${b.slots[0].endTime}` : ''));
+        const duration = b.duration || (Array.isArray(b.slots) ? b.slots.length : 1);
+        const amount = b.amount || b.price || 0;
+        const status = b.status || '';
+        const paymentStatus = b.paymentStatus || b.payment?.status || '';
+        const paymentMethod = b.paymentMethod || b.payment?.method || '';
+
+        return headers.map((h) => {
+          switch (h) {
+            case 'BookingID': return `"${String(b._id ?? '')}"`;
+            case 'UserName': return `"${String(userName).replace(/"/g, '""')}"`;
+            case 'UserEmail': return `"${String(userEmail).replace(/"/g, '""')}"`;
+            case 'UserPhone': return `"${String(userPhone).replace(/"/g, '""')}"`;
+            case 'TurfName': return `"${String(turfName).replace(/"/g, '""')}"`;
+            case 'TurfLocation': return `"${String(turfLocation).replace(/"/g, '""')}"`;
+            case 'BookingDate': return `"${String(bookingDate).replace(/"/g, '""')}"`;
+            case 'TimeSlot': return `"${String(timeSlot).replace(/"/g, '""')}"`;
+            case 'Duration': return `"${String(duration).replace(/"/g, '""')}"`;
+            case 'Amount': return `"${String(amount).replace(/"/g, '""')}"`;
+            case 'Status': return `"${String(status).replace(/"/g, '""')}"`;
+            case 'PaymentStatus': return `"${String(paymentStatus).replace(/"/g, '""')}"`;
+            case 'PaymentMethod': return `"${String(paymentMethod).replace(/"/g, '""')}"`;
+            default: return '""';
+          }
+        }).join(',');
+      });
+
       const csv = [headers.join(','), ...rows].join('\n');
       return new Blob([csv], { type: 'text/csv' });
     } catch (e) {

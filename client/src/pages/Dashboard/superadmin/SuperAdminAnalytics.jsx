@@ -1,88 +1,42 @@
-import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  ComposedChart
+  LineChart, Line, AreaChart, Area, ComposedChart,
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  TrendingUp,
-  TrendingDown,
-  Users,
-  Calendar,
-  IndianRupee,
-  MapPin,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Activity,
-  RefreshCw,
-  Download,
-  Filter,
-  Eye
+  TrendingUp, TrendingDown, Users, Calendar, IndianRupee,
+  MapPin, BarChart3, PieChart as PieChartIcon,
+  RefreshCw, Download,
 } from "lucide-react";
-import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
-import SuperAdminNavbar from './SuperAdminNavbar';
 import toast from 'react-hot-toast';
 import superAdminService from '../../../services/superAdminService';
+import SuperAdminPageTemplate from './SuperAdminPageTemplate';
 
 const SuperAdminAnalytics = () => {
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState('7d');
   const [analyticsData, setAnalyticsData] = useState({
-    overview: {
-      totalBookings: 0,
-      totalRevenue: 0,
-      totalUsers: 0,
-      totalTurfs: 0,
-      growthMetrics: {
-        bookingsGrowth: 0,
-        revenueGrowth: 0,
-        usersGrowth: 0,
-        turfsGrowth: 0
-      }
-    },
-    bookingTrends: [],
-    revenueTrends: [],
-    userRegistrations: [],
-    turfPerformance: [],
-    geographicDistribution: [],
-    paymentMethods: [],
-    popularSports: [],
-    peakHours: []
+    overview: { totalBookings: 0, totalRevenue: 0, totalUsers: 0, totalTurfs: 0, growthMetrics: {} },
+    bookingTrends: [], revenueTrends: [], userRegistrations: [], turfPerformance: [],
+    geographicDistribution: [], paymentMethods: [], popularSports: [], peakHours: []
   });
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, [timeRange]);
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+  useEffect(() => { fetchAnalyticsData(); }, [timeRange]);
 
   const fetchAnalyticsData = async () => {
     setLoading(true);
     try {
-      const data = await superAdminService.getAnalyticsData({
-        timeRange,
-        includeComparisons: true
-      });
+      const data = await superAdminService.getAnalyticsData({ timeRange, includeComparisons: true });
       setAnalyticsData(data);
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error(error);
       toast.error('Failed to fetch analytics data');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleRefresh = async () => {
@@ -97,19 +51,12 @@ const SuperAdminAnalytics = () => {
       await superAdminService.exportAnalyticsReport(timeRange);
       toast.success('Analytics report exported successfully');
     } catch (error) {
-      console.error('Error exporting report:', error);
+      console.error(error);
       toast.error('Failed to export report');
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
+  const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount);
   const formatPercentage = (value) => {
     const isPositive = value >= 0;
     return (
@@ -120,85 +67,46 @@ const SuperAdminAnalytics = () => {
     );
   };
 
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
-
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <SuperAdminSidebar />
-        <div className="flex-1 lg:ml-80">
-          <SuperAdminNavbar />
-          <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
-            <div className="flex items-center justify-center h-96">
-              <div className="flex items-center space-x-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-                <span className="text-lg text-gray-600">Loading analytics...</span>
-              </div>
-            </div>
-          </main>
+      <SuperAdminPageTemplate title="Analytics Dashboard">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-lg text-gray-600">Loading analytics...</span>
+          </div>
         </div>
-      </div>
+      </SuperAdminPageTemplate>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Mobile Sidebar Overlay */}
-      {isMobileSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
+    <SuperAdminPageTemplate title="Analytics Dashboard" subtitle="Comprehensive platform insights and metrics">
+      <div className="bg-white  rounded-xl shadow-md p-6 space-y-8">
 
-      {/* Sidebar */}
-      <SuperAdminSidebar
-        isMobileOpen={isMobileSidebarOpen}
-        onMobileClose={() => setIsMobileSidebarOpen(false)}
-      />
-
-      {/* Main Content */}
-      <div className="flex-1 lg:ml-80">
-        <SuperAdminNavbar onMobileMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
-
-        <main className="p-4 lg:p-8 pb-4 pt-48 lg:pt-40 min-h-screen">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
-              <p className="text-gray-600 mt-1">Comprehensive platform insights and metrics</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="90d">Last 90 Days</option>
-                <option value="1y">Last Year</option>
-              </select>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
-              </button>
-              <button
-                onClick={handleExport}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export Report</span>
-              </button>
-            </div>
+        {/* Top Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900">Analytics Dashboard</h1>
+            <p className="text-gray-600 mt-1">Comprehensive platform insights and metrics</p>
           </div>
+          <div className="flex items-center gap-3">
+            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="1y">Last Year</option>
+            </select>
+            <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+              <Download className="w-4 h-4" /> Export
+            </button>
+          </div>
+        </div>
 
-          {/* Overview Cards */}
-          {/* Overview Cards */}
+       {/* Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -515,12 +423,14 @@ const SuperAdminAnalytics = () => {
                   </defs>
                 </AreaChart>
               </ResponsiveContainer>
-            </motion.div>
-          </div>
-        </main>
+          </motion.div>
+        </div>
+
       </div>
-    </div>
+    </SuperAdminPageTemplate>
   );
 };
 
 export default SuperAdminAnalytics;
+
+

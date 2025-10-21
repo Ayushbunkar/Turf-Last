@@ -40,6 +40,10 @@ const superAdminService = {
   async getAllBookings(filters = {}) {
     try {
       const res = await api.get('/superadmin/bookings', { params: filters });
+      // Normalize response: controller may return array or { bookings, pagination }
+      if (Array.isArray(res.data)) {
+        return { bookings: res.data, pagination: { totalPages: 1, totalBookings: res.data.length } };
+      }
       return res.data;
     } catch (err) {
       return { bookings: [], pagination: { totalPages: 1, totalBookings: 0 } };
@@ -58,12 +62,12 @@ const superAdminService = {
   // Update turf status (approve/block)
   async updateTurfStatus(turfId, action, reason = '') {
     if (action === 'approve') {
-      const res = await api.patch(`/turfs/${turfId}/approve`);
+      const res = await api.patch(`/api/turfs/${turfId}/approve`);
       return res.data;
     }
     if (action === 'block') {
       // You may need to implement a block endpoint in backend
-      const res = await api.patch(`/turfs/${turfId}/block`, { reason });
+      const res = await api.patch(`/api/turfs/${turfId}/block`, { reason });
       return res.data;
     }
     throw new Error('Unknown action');
@@ -71,7 +75,7 @@ const superAdminService = {
 
   // Delete turf (superadmin)
   async deleteTurf(turfId) {
-    const res = await api.delete(`/turfs/${turfId}`);
+    const res = await api.delete(`/api/turfs/${turfId}`);
     return res.data;
   },
   // Fetch revenue statistics for superadmin dashboard
@@ -499,6 +503,19 @@ const superAdminService = {
     }
   },
 
+  // Import bookings via CSV (superadmin). Accepts FormData with 'file'
+  async importBookingsCSV(formData, onUploadProgress) {
+    try {
+      const res = await api.post('/superadmin/bookings/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress,
+      });
+      return res.data;
+    } catch (err) {
+      throw err;
+    }
+  },
+
     // Fetch support analytics for stat card change indicators
     async getSupportAnalytics() {
       try {
@@ -541,7 +558,8 @@ const superAdminService = {
       try {
         // Connect to backend analytics API (corrected endpoint)
         const res = await api.get('/api/superadmin/analytics', { params: typeof params === 'object' ? params : {} });
-        return res.data;
+        // Normalize: server may return data directly or inside a 'data' key
+        return res.data || res;
       } catch (err) {
         throw err;
       }

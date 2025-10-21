@@ -25,8 +25,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
-import SuperAdminNavbar from './SuperAdminNavbar';
+import SuperAdminPageTemplate from './SuperAdminPageTemplate';
 import superAdminService from '../../../services/superAdminService';
 import toast from 'react-hot-toast';
 
@@ -291,55 +290,35 @@ const SuperAdminEmails = () => {
 
   if (loading && (campaigns.length === 0 && templates.length === 0)) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <SuperAdminSidebar />
-      <div className="flex-1 lg:ml-80">
-          <SuperAdminNavbar />
-          <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
-            <div className="flex items-center justify-center h-96">
-              <div className="flex items-center space-x-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-                <span className="text-lg text-gray-600">Loading email management...</span>
-              </div>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-    if (error) {
-      return (
-        <div className="flex min-h-screen bg-gray-50">
-          <SuperAdminSidebar />
-          <div className="flex-1 lg:ml-80">
-            <SuperAdminNavbar />
-            <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
-              <div className="flex items-center justify-center h-96">
-                <div className="flex flex-col items-center space-y-2">
-                  <AlertTriangle className="w-8 h-8 text-red-500" />
-                  <span className="text-lg text-red-600">Failed to load email data.</span>
-                  <button
-                    onClick={fetchData}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Retry
-                  </button>
-                </div>
-              </div>
-            </main>
+      <SuperAdminPageTemplate title="Email Management" subtitle="Create and manage email campaigns and templates">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-lg text-gray-600">Loading email management...</span>
           </div>
         </div>
-      );
-    }
+      </SuperAdminPageTemplate>
+    );
+  }
+  if (error) {
+    return (
+      <SuperAdminPageTemplate title="Email Management" subtitle="Create and manage email campaigns and templates">
+        <div className="flex flex-col items-center justify-center h-96">
+          <AlertTriangle className="w-8 h-8 text-red-500 mb-4" />
+          <span className="text-lg text-red-600 mb-4">Failed to load email data.</span>
+          <button
+            onClick={fetchData}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </SuperAdminPageTemplate>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <SuperAdminSidebar />
-      
-      <div className="flex-1 lg:ml-80">
-        <SuperAdminNavbar />
-        
-        <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
+    <SuperAdminPageTemplate title="Email Management" subtitle="Create and manage email campaigns and templates">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -753,9 +732,6 @@ const SuperAdminEmails = () => {
               </div>
             )}
           </div>
-        </main>
-      </div>
-
       {/* Create Modal */}
       <AnimatePresence>
         {showCreateModal && (
@@ -888,7 +864,7 @@ const SuperAdminEmails = () => {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+  </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
@@ -934,7 +910,7 @@ const SuperAdminEmails = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </SuperAdminPageTemplate>
   );
 };
 

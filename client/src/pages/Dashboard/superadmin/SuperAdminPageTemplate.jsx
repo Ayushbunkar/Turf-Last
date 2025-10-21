@@ -1,21 +1,25 @@
-// Template for SuperAdmin page responsive layout
 import React, { useState } from 'react';
 import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
 import SuperAdminNavbar from './SuperAdminNavbar';
 
-const SuperAdminPageTemplate = ({ children }) => {
+const SuperAdminPageTemplate = ({ children, title = "Dashboard", subtitle = "" }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen 0  lg:mt-11  bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <SuperAdminSidebar isMobileOpen={mobileOpen} />
+      <SuperAdminSidebar isMobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
 
-      {/* Content area */}
-      <div className="lg:pl-64">
+      {/* Main content */}
+      <div className="lg:pl-64 flex flex-col min-h-screen">
+        {/* Navbar */}
         <SuperAdminNavbar onMobileMenuToggle={() => setMobileOpen(s => !s)} />
-        <main className="pt-28 px-4 lg:px-8 pb-8">
-          {children}
+          
+        {/* Page content */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto bg-white dark:bg-gray-800 shadow-md rounded-xl p-4 sm:p-6 lg:p-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>

@@ -109,7 +109,7 @@ export default function BookingSuccess() {
           transition={{ delay: 0.2 }}
         >
           <div className="font-semibold text-green-700">Turf</div>
-          <div className="text-green-900">{booking.turf?.name || booking.turf}</div>
+          <div className="text-green-900">{booking.turf?.name || booking.turfName || booking.turf}</div>
           <div className="text-sm text-green-600">{booking.turf?.location || ""}</div>
         </motion.div>
 
