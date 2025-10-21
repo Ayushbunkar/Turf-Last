@@ -1,0 +1,22 @@
+{
+  "app": {
+    "title": "Turf Time",
+    "greeting": "Bienvenido",
+    "settings": "Configuración",
+    "nav": {
+      "home": "Inicio",
+      "about": "Acerca de",
+      "turfs": "Canchas",
+      "contact": "Contacto"
+    },
+    "auth": {
+      "login": "Iniciar sesión",
+      "signup": "Registrarse",
+      "dashboard": "Panel"
+    }
+  },
+  "booking": {
+    "book": "Reservar ahora",
+    "cancel": "Cancelar"
+  }
+}

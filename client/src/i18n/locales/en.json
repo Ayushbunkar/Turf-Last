@@ -1,0 +1,22 @@
+{
+  "app": {
+    "title": "Turf Time",
+    "greeting": "Welcome",
+    "settings": "Settings",
+    "nav": {
+      "home": "Home",
+      "about": "About",
+      "turfs": "Turfs",
+      "contact": "Contact"
+    },
+    "auth": {
+      "login": "Login",
+      "signup": "Sign Up",
+      "dashboard": "Dashboard"
+    }
+  },
+  "booking": {
+    "book": "Book now",
+    "cancel": "Cancel"
+  }
+}
