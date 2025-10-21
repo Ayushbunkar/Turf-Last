@@ -1,3 +1,22 @@
+// Update a turf admin by superadmin
+export async function updateTurfAdminBySuperAdmin(req, res) {
+  try {
+    const User = (await import('../models/User.js')).default;
+    const { id } = req.params;
+    const updateFields = {};
+    // Only allow editable fields
+    ['name', 'email', 'phone', 'address', 'password', 'status'].forEach(field => {
+      if (req.body[field] !== undefined) updateFields[field] = req.body[field];
+    });
+    // Only allow role Turfadmin
+    updateFields.role = 'Turfadmin';
+    const updated = await User.findByIdAndUpdate(id, updateFields, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Turf admin not found' });
+    res.json({ turfAdmin: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update turf admin', details: err.message });
+  }
+}
 // Create a user from superadmin panel
 export async function createUserBySuperAdmin(req, res) {
   try {
@@ -598,7 +617,7 @@ export async function getTurfAdmins(req, res) {
       name: admin.name || '',
       email: admin.email || '',
       phone: admin.phone || '',
-      location: admin.address || '',
+      address: admin.address || '',
       turfsCount: admin.turfsCount || 0,
       totalRevenue: admin.totalRevenue || 0,
       totalBookings: admin.totalBookings || 0,

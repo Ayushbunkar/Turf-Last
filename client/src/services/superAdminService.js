@@ -13,6 +13,11 @@ async function safeFetch(url) {
 }
 
 const superAdminService = {
+  // Update a turf admin's details (used by edit modal)
+  async updateTurfAdmin(adminId, payload) {
+    const res = await api.patch(`/superadmin/turfadmins/${adminId}`, payload);
+    return res.data;
+  },
   // Fetch database tables (collections) for SuperAdminDatabase.jsx
   async getDatabaseTables() {
     try {
@@ -183,6 +188,12 @@ const superAdminService = {
     }
   },
 
+
+  // Update a turf admin's details (used by edit modal)
+  async updateTurfAdmin(adminId, payload) {
+    const res = await api.patch(`/superadmin/turfadmins/${adminId}`, payload);
+    return res.data;
+  },
   // Update a turf admin's status (if backend exposes such endpoint). This is a best-effort wrapper.
   async updateTurfAdminStatus(adminId, status, reason = '') {
     const res = await api.patch(`/superadmin/users/${adminId}`, { status, reason });

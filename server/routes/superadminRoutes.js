@@ -73,6 +73,16 @@ router.post('/turfadmins', verifySuperAdmin, async (req, res, next) => {
 	}
 });
 
+// PATCH: update turf admin details
+router.patch('/turfadmins/:id', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { updateTurfAdminBySuperAdmin } = await import('../controllers/superadminController.js');
+		return updateTurfAdminBySuperAdmin(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+
 // Users endpoints for superadmin dashboard
 // Create a user (superadmin)
 router.post('/users', verifySuperAdmin, async (req, res, next) => {
