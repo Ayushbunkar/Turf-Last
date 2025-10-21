@@ -74,8 +74,35 @@ router.post('/turfadmins', verifySuperAdmin, async (req, res, next) => {
 });
 
 // Users endpoints for superadmin dashboard
+// Create a user (superadmin)
+router.post('/users', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { createUserBySuperAdmin } = await import('../controllers/superadminController.js');
+		return createUserBySuperAdmin(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
 router.get('/users', verifySuperAdmin, getAllUsers);
 router.get('/users/statistics', verifySuperAdmin, getUserStatistics);
+// Create user (superadmin)
+router.post('/users', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { createUserBySuperAdmin } = await import('../controllers/superadminController.js');
+		return createUserBySuperAdmin(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+// Export users to CSV
+router.get('/users/export', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { exportUsersCSV } = await import('../controllers/superadminController.js');
+		return exportUsersCSV(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
 // Fetch single user
 router.get('/users/:id', verifySuperAdmin, async (req, res, next) => {
 	try {

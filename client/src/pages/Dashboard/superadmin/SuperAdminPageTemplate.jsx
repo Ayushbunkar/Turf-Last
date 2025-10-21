@@ -1,6 +1,6 @@
 // Template for SuperAdmin page responsive layout
 import React, { useState } from 'react';
-import SuperAdminSidebar from './SuperAdminSidebar';
+import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
 import SuperAdminNavbar from './SuperAdminNavbar';
 
 const SuperAdminPageTemplate = ({ children }) => {

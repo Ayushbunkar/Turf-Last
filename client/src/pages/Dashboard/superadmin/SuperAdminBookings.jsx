@@ -23,7 +23,7 @@ import {
   ChevronRight,
   X
 } from 'lucide-react';
-import SuperAdminSidebar from './SuperAdminSidebar';
+import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
 import SuperAdminNavbar from './SuperAdminNavbar';
 import toast from 'react-hot-toast';
 import superAdminService from '../../../services/superAdminService';

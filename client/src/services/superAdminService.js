@@ -242,6 +242,12 @@ const superAdminService = {
     }
   },
 
+  // Create a new user
+  async createUser(userData) {
+    const res = await api.post('/superadmin/users', userData);
+    return res.data;
+  },
+
   // Fetch user statistics for SuperAdminUsers.jsx
   async getUserStatistics() {
     try {

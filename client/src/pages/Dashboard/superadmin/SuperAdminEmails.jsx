@@ -25,7 +25,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import SuperAdminSidebar from './SuperAdminSidebar';
+import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
 import SuperAdminNavbar from './SuperAdminNavbar';
 import superAdminService from '../../../services/superAdminService';
 import toast from 'react-hot-toast';

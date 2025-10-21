@@ -26,7 +26,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import SuperAdminSidebar from './SuperAdminSidebar';
+import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
 import SuperAdminNavbar from './SuperAdminNavbar';
 import superAdminService from '../../../services/superAdminService';
 import toast from 'react-hot-toast';

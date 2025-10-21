@@ -87,7 +87,7 @@ import ValidateRazorpay from './pages/Admin/ValidateRazorpay';
 // === EXTRA SUPERADMIN MODULES ===
 import SuperAdminNavbar from "./pages/Dashboard/superadmin/SuperAdminNavbar";
 import SuperAdminPageTemplate from "./pages/Dashboard/superadmin/SuperAdminPageTemplate";
-import SuperAdminSidebar from "./pages/Dashboard/superadmin/SuperAdminSidebar";
+// import SuperAdminSidebar from "./pages/Dashboard/superadmin/SuperAdminSidebar";
 import SuperAdminTurfsandVenues from "./pages/Dashboard/superadmin/SuperAdminTurfsandVenues";
 import SystemAnalytics from "./pages/Dashboard/superadmin/SystemAnalytics";
 
@@ -352,14 +352,7 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/dashboard/superadmin/sidebar"
-                  element={
-                    <ProtectedRoute role="superadmin">
-                      <SuperAdminSidebar />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* Removed direct sidebar route, sidebar is now only used as a component */}
                 <Route
                   path="/dashboard/superadmin/turfs-and-venues"
                   element={

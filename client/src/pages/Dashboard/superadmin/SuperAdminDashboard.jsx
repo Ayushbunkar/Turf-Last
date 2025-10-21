@@ -21,7 +21,7 @@ import {
   Star,
   MapPin
 } from "lucide-react";
-import SuperAdminSidebar from "./SuperAdminSidebar";
+import SuperAdminSidebar from "../../../components/Sidebar/SuperAdminSidebar";
 import SuperAdminNavbar from "./SuperAdminNavbar";
 import superAdminService from "../../../services/superAdminService";
 import toast from "react-hot-toast";
@@ -223,7 +223,7 @@ const SuperAdminDashboard = () => {
       />
 
       {/* Page Content */}
-      <div className="flex pt-[9rem]"> {/* 9rem accounts for both navbars */}
+      <div className="flex pt-[3rem]"> {/* 9rem accounts for both navbars */}
         {/* Sidebar spacing (width same as sidebar) */}
         <div className="hidden lg:block w-[320px]" />
 

@@ -1,3 +1,65 @@
+// Create a user from superadmin panel
+export async function createUserBySuperAdmin(req, res) {
+  try {
+    const User = (await import('../models/User.js')).default;
+    const { name, email, phone, location, role = 'user', status = 'active' } = req.body;
+    if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+    // Check for existing user
+    const existing = await User.findOne({ email: String(email).trim().toLowerCase() });
+    if (existing) return res.status(409).json({ error: 'User with this email already exists' });
+    // Create user
+    // Generate a random password (for demo, not secure)
+    const password = Math.random().toString(36).slice(-8);
+    const user = new User({
+      name,
+      email: String(email).trim().toLowerCase(),
+      password,
+      phone,
+      location,
+      role,
+      status,
+      createdAt: new Date(),
+      lastLogin: null
+    });
+    await user.save();
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create user', details: err.message });
+  }
+}
+// Export users as CSV for superadmin
+export async function exportUsersCSV(req, res) {
+  try {
+    const users = await (await import('../models/User.js')).default.find({}, {
+      name: 1,
+      email: 1,
+      phone: 1,
+      location: 1,
+      role: 1,
+      status: 1,
+      createdAt: 1,
+      lastLogin: 1
+    });
+    const header = ['Name', 'Email', 'Phone', 'Location', 'Role', 'Status', 'Created At', 'Last Login'];
+    const rows = users.map(u => [
+      u.name || '',
+      u.email || '',
+      u.phone || '',
+      u.location || '',
+      u.role || '',
+      u.status || '',
+      u.createdAt ? new Date(u.createdAt).toISOString() : '',
+      u.lastLogin ? new Date(u.lastLogin).toISOString() : ''
+    ]);
+    let csv = header.join(',') + '\n';
+    csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}` ).join(',')).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="users_export.csv"');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export users', details: err.message });
+  }
+}
 // --- SUPPORT TICKETS CONTROLLER ---
 let SupportTicket;
 try {

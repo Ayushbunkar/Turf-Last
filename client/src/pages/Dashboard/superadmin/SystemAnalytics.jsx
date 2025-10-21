@@ -40,7 +40,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import SuperAdminSidebar from './SuperAdminSidebar';
+import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
 import SuperAdminNavbar from './SuperAdminNavbar';
 import toast from 'react-hot-toast';
 

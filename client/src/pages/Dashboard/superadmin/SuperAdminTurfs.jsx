@@ -28,7 +28,7 @@ import {
   Mail,
   Shield
 } from "lucide-react";
-import SuperAdminSidebar from './SuperAdminSidebar';
+import SuperAdminSidebar from '../../../components/Sidebar/SuperAdminSidebar';
 import SuperAdminNavbar from './SuperAdminNavbar';
 import superAdminService from '../../../services/superAdminService';
 import toast from 'react-hot-toast';
