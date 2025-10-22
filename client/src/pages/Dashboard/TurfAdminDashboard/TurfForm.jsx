@@ -22,8 +22,9 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
     pricePerHour: "",
     sportType: "football",
     description: "",
-  // image: null,
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [preview, setPreview] = useState(null);
   // Remove image preview and upload progress
   const [loading, setLoading] = useState(false);
 
@@ -38,6 +39,12 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
     // image: editingTurf.image || null,
       });
   // setPreview(editingTurf.image || null);
+      // set preview if editing turf has images
+      if (editingTurf && editingTurf.images && editingTurf.images.length) {
+        setPreview(editingTurf.images[0]);
+      } else {
+        setPreview(null);
+      }
     } else {
       setForm({
         name: "",
@@ -45,9 +52,8 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
         pricePerHour: "",
         sportType: "football",
         description: "",
-    // image: null,
       });
-  // setPreview(null);
+      setPreview(null);
     }
   }, [editingTurf, isOpen]);
 
@@ -65,6 +71,14 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
         return;
       }
 
+      // Ensure token exists to avoid triggering global interceptor which redirects on 401
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Not authenticated. Please login and try again.');
+        setLoading(false);
+        return;
+      }
+
       // Basic client-side validation
       if (!form.name || !form.location || !form.pricePerHour) {
         toast.error('Please fill required fields: name, location, price');
@@ -72,30 +86,29 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
         return;
       }
 
-      // Remove FormData and upload config, use plain object
-      const turfData = {
-        name: form.name,
-        location: form.location,
-        pricePerHour: form.pricePerHour,
-        sportType: form.sportType,
-        description: form.description
-      };
+      // Build multipart/form-data to include image if present
+      const fd = new FormData();
+      fd.append('name', form.name);
+      fd.append('location', form.location);
+      fd.append('pricePerHour', form.pricePerHour);
+      fd.append('sportType', form.sportType);
+      fd.append('description', form.description || '');
+      if (imageFile) fd.append('image', imageFile);
 
       let res;
       if (editingTurf) {
-        res = await api.put(`/api/turfs/${editingTurf._id}`, turfData);
-        console.debug('TurfForm: update response', res?.data);
+        res = await api.put(`/api/turfs/${editingTurf._id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       } else {
-        res = await api.post(`/api/turfs`, turfData);
-        console.debug('TurfForm: create response', res?.data);
+        res = await api.post(`/api/turfs`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       }
 
-      // Debug: log imageUrl and turf object
-      // Remove imageUrl and preview logic
-
-      toast.success(editingTurf ? "Turf updated" : "Turf created");
-      onTurfAdded && onTurfAdded();
-      onClose && onClose();
+  // pass created/updated turf back to parent for optimistic update or list refresh
+  const returnedTurf = res?.data?.turf || res?.data;
+  // If server returned imageUrl, show it in preview immediately
+  const imageUrl = res?.data?.imageUrl || (returnedTurf && returnedTurf.images && returnedTurf.images[0]);
+  if (imageUrl) setPreview(imageUrl);
+  onTurfAdded && onTurfAdded(returnedTurf);
+  onClose && onClose();
     } catch (err) {
       console.error("Save turf error:", err);
       const msg = err.response?.data?.message || err.message || "Could not save turf";
@@ -216,7 +229,32 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
                 }`}
               ></textarea>
 
-              {/* Removed image upload UI */}
+
+              {/* Image upload */}
+              <div className="pt-2">
+                <label className="block text-sm font-medium mb-1">Turf Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setImageFile(file);
+                    if (file) {
+                      const url = URL.createObjectURL(file);
+                      setPreview(url);
+                    } else {
+                      setPreview(null);
+                    }
+                  }}
+                />
+                <div className="mt-2">
+                  <img
+                    src={preview || PLACEHOLDER_SVG}
+                    alt="preview"
+                    className="w-48 h-24 object-cover rounded-md border"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Buttons */}

@@ -66,17 +66,55 @@ const superAdminService = {
       return res.data;
     }
     if (action === 'block') {
-      // You may need to implement a block endpoint in backend
+      // Pass reason in body to backend block endpoint
       const res = await api.patch(`/api/turfs/${turfId}/block`, { reason });
       return res.data;
     }
     throw new Error('Unknown action');
   },
 
+  // Set turf status (approve | block | pending | active)
+  // - approve/active will call approve endpoint
+  // - block will call block endpoint
+  // - pending will update the turf to isApproved=false and status='pending'
+  async setTurfStatus(turfId, status, opts = {}) {
+    const s = String(status || '').toLowerCase();
+    if (s === 'approve' || s === 'active') {
+      return this.updateTurfStatus(turfId, 'approve');
+    }
+    if (s === 'block' || s === 'blocked') {
+      return this.updateTurfStatus(turfId, 'block', opts.reason || '');
+    }
+    if (s === 'pending') {
+      // use update endpoint to set status/isApproved
+      const payload = { status: 'pending', isApproved: false };
+      const res = await api.put(`/api/turfs/${turfId}`, payload);
+      return res.data;
+    }
+    // fallback - try to update status field
+    const res = await api.put(`/api/turfs/${turfId}`, { status });
+    return res.data;
+  },
+
+  // Batch update turfs status (superadmin)
+  async batchSetTurfStatus(turfIds = [], status, reason = '') {
+    const res = await api.patch('/superadmin/turfs/batch-status', { turfIds, status, reason });
+    return res.data;
+  },
+
   // Delete turf (superadmin)
   async deleteTurf(turfId) {
-    const res = await api.delete(`/api/turfs/${turfId}`);
-    return res.data;
+    try {
+      const res = await api.delete(`/superadmin/turfs/${turfId}`);
+      return res.data;
+    } catch (err) {
+      // Extract meaningful message for UI
+      const msg = err?.response?.data?.message || err?.response?.data?.error || err.message || 'Failed to delete turf';
+      const status = err?.response?.status;
+      const e = new Error(msg);
+      e.status = status;
+      throw e;
+    }
   },
   // Fetch revenue statistics for superadmin dashboard
   async getRevenueStats(params = {}) {
@@ -171,10 +209,27 @@ const superAdminService = {
   // Fetch turf admin statistics for superadmin dashboard
   async getTurfAdminStats() {
     try {
-      const res = await api.get('/superadmin/turfadmins/statistics');
-      return res.data;
+      // Fetch turf-admin specific stats and overall turf stats, then merge.
+      const [resAdmins, resTurfs] = await Promise.all([
+        api.get('/superadmin/turfadmins/statistics'),
+        api.get('/superadmin/turfs/statistics')
+      ]);
+      const adminStats = resAdmins?.data || {};
+      const turfStats = resTurfs?.data || {};
+      return {
+        // turf-admin counts
+        totalTurfAdmins: adminStats.totalTurfAdmins ?? adminStats.total ?? 0,
+        activeTurfAdmins: adminStats.activeTurfAdmins ?? adminStats.active ?? 0,
+        pendingTurfAdmins: adminStats.pendingTurfAdmins ?? adminStats.pending ?? 0,
+        // merge overall turf counts so UI can show "Total Turfs Managed" etc.
+        totalTurfs: turfStats.totalTurfs ?? turfStats.total ?? 0,
+        activeTurfs: turfStats.activeTurfs ?? turfStats.active ?? 0,
+        pendingTurfs: turfStats.pendingTurfs ?? turfStats.pending ?? 0,
+        // keep any other fields returned by adminStats
+        ...adminStats
+      };
     } catch (err) {
-      return { totalTurfAdmins: 0, activeTurfAdmins: 0, pendingTurfAdmins: 0 };
+      return { totalTurfAdmins: 0, activeTurfAdmins: 0, pendingTurfAdmins: 0, totalTurfs: 0 };
     }
   },
 
@@ -217,6 +272,12 @@ const superAdminService = {
     } catch (err) {
       return { users: [], pagination: { totalPages: 1, totalUsers: 0 } };
     }
+  },
+
+  // Update a user's status (approve/block/suspend) - wrapper used by UI
+  async updateUserStatus(userId, payload) {
+    const res = await api.patch(`/superadmin/users/${userId}`, payload);
+    return res.data;
   },
 
   // Delete a user (superadmin)
@@ -327,8 +388,9 @@ const superAdminService = {
 
   async getNotifications() {
     try {
-      const data = await safeFetch(`${API_BASE}/superadmin/notifications`);
-      return data;
+      // Prefer axios instance for cookies and auth headers
+      const res = await api.get('/superadmin/notifications');
+      return res.data || { notifications: [] };
     } catch (err) {
       return {
         notifications: [
@@ -337,6 +399,15 @@ const superAdminService = {
           { id: 3, type: 'info', title: 'Daily Report', message: 'Analytics ready', time: '1 hour ago', read: true }
         ]
       };
+    }
+  },
+
+  async markAllNotificationsRead() {
+    try {
+      const res = await api.patch('/superadmin/notifications/mark-all-read');
+      return res.data;
+    } catch (err) {
+      throw err;
     }
   },
 
@@ -560,6 +631,129 @@ const superAdminService = {
         const res = await api.get('/api/superadmin/analytics', { params: typeof params === 'object' ? params : {} });
         // Normalize: server may return data directly or inside a 'data' key
         return res.data || res;
+      } catch (err) {
+        throw err;
+      }
+    },
+
+    // Export analytics report as CSV (client-side export)
+    async exportAnalyticsReport(timeRange = '7d') {
+      const safe = (v) => {
+        const s = v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+        return '"' + s.replace(/"/g, '""') + '"';
+      };
+      try {
+        const data = await this.getAnalyticsData({ timeRange, includeComparisons: true });
+        const lines = [];
+        // Overview section (single-column section header)
+        lines.push([safe(`Section: Overview`)].join(','));
+        lines.push([safe('Metric'), safe('Value')].join(','));
+        const overview = data?.overview || {};
+        Object.entries(overview).forEach(([k, v]) => {
+          lines.push([safe(k), safe(v)].join(','));
+        });
+        lines.push('');
+
+        // Booking trends
+        lines.push([safe('Section: Booking Trends')].join(','));
+        lines.push([safe('Date'), safe('Bookings'), safe('Revenue')].join(','));
+        (data?.bookingTrends || []).forEach(row => {
+          const date = row.date || row.label || '';
+          const bookings = row.bookings ?? row.count ?? '';
+          const revenue = row.revenue ?? '';
+          lines.push([safe(date), safe(bookings), safe(revenue)].join(','));
+        });
+
+        // Use CRLF for compatibility with Excel on Windows
+        const csv = lines.join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        if (typeof window !== 'undefined') {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.setAttribute('download', `analytics_report_${timeRange}_${new Date().toISOString().slice(0,10)}.csv`);
+          document.body.appendChild(a);
+          a.click();
+          a.parentNode.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }
+        return true;
+      } catch (err) {
+        throw err;
+      }
+    },
+
+    // Export revenue report as CSV (client-side)
+    async exportRevenueReport(timeFilter = '30d') {
+      const safe = (v) => {
+        const s = v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+        return '"' + s.replace(/"/g, '""') + '"';
+      };
+      try {
+        const [statsResponse, chartResponse, topResponse, transResponse] = await Promise.all([
+          this.getRevenueStats(timeFilter),
+          this.getRevenueChartData(timeFilter),
+          this.getTopPerformingTurfs(timeFilter),
+          this.getRecentTransactions(100)
+        ]);
+
+        const lines = [];
+        // Overview
+        lines.push([safe('Section: Overview')].join(','));
+        lines.push([safe('Metric'), safe('Value')].join(','));
+        const stats = statsResponse || {};
+        Object.entries(stats).forEach(([k, v]) => {
+          lines.push([safe(k), safe(v)].join(','));
+        });
+        lines.push('');
+
+        // Revenue Trends
+        lines.push([safe('Section: Revenue Trends')].join(','));
+        lines.push([safe('Label'), safe('Revenue'), safe('Bookings')].join(','));
+        const trends = chartResponse?.revenueTrends || [];
+        trends.forEach(r => {
+          const label = r.month || r.date || r.label || '';
+          const revenue = r.revenue ?? r.value ?? '';
+          const bookings = r.bookings ?? r.count ?? '';
+          lines.push([safe(label), safe(revenue), safe(bookings)].join(','));
+        });
+        lines.push('');
+
+        // Top performers
+        lines.push([safe('Section: Top Performing Turfs')].join(','));
+        lines.push([safe('Rank'), safe('Name'), safe('Location'), safe('Revenue')].join(','));
+        const tops = topResponse?.topTurfs || topResponse || [];
+        tops.forEach((t, i) => {
+          lines.push([safe(i+1), safe(t.name || ''), safe(t.location || ''), safe(t.revenue ?? t.value ?? '')].join(','));
+        });
+        lines.push('');
+
+        // Recent transactions
+        lines.push([safe('Section: Recent Transactions')].join(','));
+        lines.push([safe('TransactionID'), safe('User'), safe('Amount'), safe('Status'), safe('Date')].join(','));
+        const txs = transResponse?.transactions || transResponse || [];
+        txs.forEach(tx => {
+          const id = tx._id || tx.id || '';
+          const user = tx.user?.name || tx.userName || tx.customer || '';
+          const amount = tx.amount ?? tx.price ?? '';
+          const status = tx.status || tx.paymentStatus || '';
+          const date = tx.createdAt || tx.date || '';
+          lines.push([safe(id), safe(user), safe(amount), safe(status), safe(date)].join(','));
+        });
+
+        const csv = lines.join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        if (typeof window !== 'undefined') {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.setAttribute('download', `revenue_report_${timeFilter}_${new Date().toISOString().slice(0,10)}.csv`);
+          document.body.appendChild(a);
+          a.click();
+          a.parentNode.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }
+        return true;
       } catch (err) {
         throw err;
       }

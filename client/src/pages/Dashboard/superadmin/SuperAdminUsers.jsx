@@ -231,6 +231,94 @@ const SuperAdminUsers = () => {
         </div>
 
         {/* TODO: Modals for view/add/delete user */}
+        {/* View user modal */}
+        {showUserModal && selectedUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">User details</h3>
+                <button onClick={() => { setShowUserModal(false); setSelectedUser(null); }} className="p-1 rounded hover:bg-gray-100">Close</button>
+              </div>
+              <div className="space-y-2">
+                <div><strong>Name:</strong> {selectedUser.name}</div>
+                <div><strong>Email:</strong> {selectedUser.email}</div>
+                <div><strong>Role:</strong> {selectedUser.role}</div>
+                <div><strong>Status:</strong> {selectedUser.status}</div>
+                {selectedUser.phone && <div><strong>Phone:</strong> {selectedUser.phone}</div>}
+                {selectedUser.location && <div><strong>Location:</strong> {selectedUser.location}</div>}
+                <div><strong>Joined:</strong> {formatDate(selectedUser.createdAt)}</div>
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => { setShowUserModal(false); setSelectedUser(null); }} className="px-4 py-2 bg-gray-100 rounded">Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete confirmation modal */}
+        {showDeleteModal && userToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+              <h3 className="text-lg font-bold mb-2">Confirm delete</h3>
+              <p className="text-sm text-gray-600">Are you sure you want to delete <strong>{userToDelete.name}</strong>? This action cannot be undone.</p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => { setShowDeleteModal(false); setUserToDelete(null); }} className="px-3 py-2 rounded bg-gray-100">Cancel</button>
+                <button onClick={() => handleDelete(userToDelete._id)} className="px-3 py-2 rounded bg-red-600 text-white">Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add user modal */}
+        {showAddUserModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">Add user</h3>
+                <button onClick={() => { setShowAddUserModal(false); setNewUser({ name: '', email: '', phone: '', location: '', role: 'user', status: 'active' }); setAddUserError(''); }} className="p-1 rounded hover:bg-gray-100">Close</button>
+              </div>
+              <div className="space-y-3">
+                <input value={newUser.name} onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" className="w-full px-3 py-2 border rounded" />
+                <input value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" className="w-full px-3 py-2 border rounded" />
+                <input value={newUser.phone} onChange={e => setNewUser(prev => ({ ...prev, phone: e.target.value }))} placeholder="Phone" className="w-full px-3 py-2 border rounded" />
+                <input value={newUser.location} onChange={e => setNewUser(prev => ({ ...prev, location: e.target.value }))} placeholder="Location" className="w-full px-3 py-2 border rounded" />
+                <div className="flex gap-2">
+                  <select value={newUser.role} onChange={e => setNewUser(prev => ({ ...prev, role: e.target.value }))} className="px-3 py-2 border rounded">
+                    <option value="user">User</option>
+                    <option value="Turfadmin">Turf Admin</option>
+                    <option value="superadmin">Super Admin</option>
+                  </select>
+                  <select value={newUser.status} onChange={e => setNewUser(prev => ({ ...prev, status: e.target.value }))} className="px-3 py-2 border rounded">
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                {addUserError && <div className="text-sm text-red-600">{addUserError}</div>}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => { setShowAddUserModal(false); setNewUser({ name: '', email: '', phone: '', location: '', role: 'user', status: 'active' }); setAddUserError(''); }} className="px-3 py-2 rounded bg-gray-100">Cancel</button>
+                <button onClick={async () => {
+                  setAddUserLoading(true);
+                  setAddUserError('');
+                  try {
+                    await superAdminService.createUser(newUser);
+                    toast.success('User created');
+                    setShowAddUserModal(false);
+                    setNewUser({ name: '', email: '', phone: '', location: '', role: 'user', status: 'active' });
+                    await Promise.all([fetchUsers(), fetchStatistics()]);
+                  } catch (err) {
+                    const msg = err?.response?.data?.error || err?.message || 'Failed to create user';
+                    setAddUserError(msg);
+                  } finally {
+                    setAddUserLoading(false);
+                  }
+                }} className={`px-3 py-2 rounded bg-blue-600 text-white ${addUserLoading ? 'opacity-70' : ''}`}>Create</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </SuperAdminPageTemplate>
   );

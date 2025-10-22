@@ -10,7 +10,21 @@ export const SocketProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-  const newSocket = io("http://localhost:4500"); // Port now matches backend
+    // Use API base from env if available to avoid hard-coding host/port
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4500';
+    const token = (() => {
+      try { const raw = localStorage.getItem('token'); return raw || null; } catch (e) { return null; }
+    })();
+
+    const newSocket = io(API_BASE, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'], // prefer websocket but allow polling fallback
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      auth: token ? { token } : undefined,
+      withCredentials: true,
+    });
+    console.debug('Socket: attempting connection to', API_BASE);
     setSocket(newSocket);
 
     // Determine current user from localStorage if not passed
@@ -24,17 +38,28 @@ export const SocketProvider = ({ children, userId }) => {
 
     // Join a room for this user (personal room)
     const uid = userId || currentUser?._id;
-    if (uid) {
-      newSocket.emit('joinRoom', uid);
-      console.debug('Socket: join personal room', uid);
-    }
+    newSocket.on('connect', () => {
+      console.debug('Socket connected:', newSocket.id);
+      // Join personal room after connect
+      if (uid) {
+        newSocket.emit('joinRoom', uid);
+        console.debug('Socket: join personal room', uid);
+      }
+      if (role === 'superadmin') {
+        newSocket.emit('joinRoom', 'superadmin');
+        console.debug('Socket: join superadmin room');
+      }
+    });
 
-    // If user is a superadmin, also join the shared 'superadmin' room
-    const role = currentUser?.role;
-    if (role === 'superadmin') {
-      newSocket.emit('joinRoom', 'superadmin');
-      console.debug('Socket: join superadmin room');
-    }
+    newSocket.on('connect_error', (err) => {
+      console.error('Socket connect_error', err && err.message ? err.message : err);
+    });
+
+    newSocket.on('reconnect_attempt', (attempt) => {
+      console.debug('Socket reconnect attempt', attempt);
+    });
+
+    // role handling moved into connect handler above
 
     // Listen for notifications
     newSocket.on("receiveNotification", (data) => {

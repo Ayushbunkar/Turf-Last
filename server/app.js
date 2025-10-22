@@ -25,6 +25,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Dev helper: log DELETE requests to /api/turfs to aid debugging permission/404 issues
+app.use((req, res, next) => {
+  try {
+    if (req.method === 'DELETE' && req.originalUrl && req.originalUrl.startsWith('/api/turfs')) {
+      console.log('[DEBUG] Incoming DELETE request:', req.method, req.originalUrl, 'AuthHeaderPresent:', !!req.headers.authorization, 'CookieToken:', !!req.cookies?.token);
+    }
+  } catch (e) {}
+  next();
+});
+
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -38,6 +48,13 @@ app.use('/api/turfadmin', turfadminRoutes);
 app.use('/api/user', userRoutes);
 // Direct superadmin endpoint for legacy/frontend compatibility
 app.use('/superadmin', superadminRoutes);
+
+// Serve local uploads directory in development if it exists
+import fs from 'fs';
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (fs.existsSync(uploadsDir)) {
+  app.use('/uploads', express.static(uploadsDir));
+}
 
 app.get('/', (req, res) => res.json({ message: 'Server app running' }));
 

@@ -264,23 +264,23 @@ const SuperAdminBookingManagement = () => {
   return (
     <SuperAdminPageTemplate>
       <div className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between gap-4">
+        {/* Header - force single-line layout */}
+        <div className="flex flex-row items-center justify-between gap-4 flex-nowrap">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900">Booking Management</h1>
             <p className="text-sm mt-1 text-gray-600">Monitor and manage all turf bookings</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 whitespace-nowrap">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700"
+              className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 h-10 text-sm rounded-lg hover:bg-green-700"
             >
               <Download className="w-4 h-4" /> Export
             </button>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 h-10 text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
             </button>
@@ -319,7 +319,7 @@ const SuperAdminBookingManagement = () => {
                     setImporting(false);
                   }
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg ${importing ? 'bg-gray-400' : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
+                className={`flex items-center gap-2 px-3 py-2 h-10 text-sm rounded-lg ${importing ? 'bg-gray-400' : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
                 disabled={importing}
               >
                 <span>{importing ? 'Importing...' : 'Import CSV'}</span>

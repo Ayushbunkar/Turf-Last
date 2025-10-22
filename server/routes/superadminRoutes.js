@@ -1,6 +1,8 @@
 
 import express from 'express';
-import { getAnalytics, getDashboardStats, getRecentActivities, getSystemMetrics, getAllUsers, getUserStatistics, getTurfAdmins, getTurfAdminStats, getAllTurfs, getTurfStats, getRevenueStats, getRevenueChartData, getTopPerformingTurfs, getRecentTransactions, getAllBookings, getBookingStatistics, getSystemServices, getSystemPerformance, getDatabaseStats, getDatabaseBackups, getDatabaseQueries, getDatabasePerformance, getSupportTickets, getProfile, updateProfile, changePassword, getSystemSettings, updateSystemSettings, getNotificationSettings, updateNotificationSettings, getSecuritySettings, updateSecuritySettings } from '../controllers/superadminController.js';
+import { getAnalytics, getDashboardStats, getRecentActivities, getSystemMetrics, getAllUsers, getUserStatistics, getTurfAdmins, getTurfAdminStats, getAllTurfs, getTurfStats, getRevenueStats, getRevenueChartData, getTopPerformingTurfs, getRecentTransactions, getAllBookings, getBookingStatistics, getSystemServices, getSystemPerformance, getDatabaseStats, getDatabaseBackups, getDatabaseQueries, getDatabasePerformance, getSupportTickets, getProfile, updateProfile, changePassword, getSystemSettings, updateSystemSettings, getNotificationSettings, updateNotificationSettings, getSecuritySettings, updateSecuritySettings, batchUpdateTurfsStatus } from '../controllers/superadminController.js';
+import { getNotifications, markAllNotificationsRead } from '../controllers/superadminController.js';
+import { deleteTurf as deleteTurfController } from '../controllers/turfController.js';
 import { getSupportAnalytics } from '../controllers/superadminController.js';
 import { verifySuperAdmin } from '../middleware/authMiddleware.js';
 import {
@@ -54,9 +56,29 @@ router.get('/revenue/top-turfs', verifySuperAdmin, getTopPerformingTurfs);
 // Recent transactions endpoint
 router.get('/revenue/recent-transactions', verifySuperAdmin, getRecentTransactions);
 
+// DEBUG: public routes (no auth) to help local debugging/verification
+router.get('/debug/revenue/statistics', getRevenueStats);
+router.get('/debug/revenue/chart', getRevenueChartData);
+router.get('/debug/revenue/top-turfs', getTopPerformingTurfs);
+router.get('/debug/revenue/recent-transactions', getRecentTransactions);
+
 // Turfs endpoints for superadmin dashboard
 router.get('/turfs', verifySuperAdmin, getAllTurfs);
+// Protected statistics endpoint
 router.get('/turfs/statistics', verifySuperAdmin, getTurfStats);
+// Batch status update (superadmin) - accepts { turfIds: [], status: 'blocked', reason?: '' }
+router.patch('/turfs/batch-status', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { batchUpdateTurfsStatus } = await import('../controllers/superadminController.js');
+		return batchUpdateTurfsStatus(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+// Public test endpoint (development only) - returns same stats without auth to help debugging the UI
+router.get('/turfs/statistics/public', getTurfStats);
+// Allow superadmin to delete any turf (uses deleteTurf from turfController)
+router.delete('/turfs/:id', verifySuperAdmin, deleteTurfController);
 
 // Bookings endpoints for superadmin dashboard
 router.get('/bookings', verifySuperAdmin, getAllBookings);
@@ -181,6 +203,10 @@ router.get('/recent-activities', verifySuperAdmin, getRecentActivities);
 router.get('/support/tickets', verifySuperAdmin, getSupportTickets);
 // Support analytics endpoint for superadmin
 router.get('/support/analytics', verifySuperAdmin, getSupportAnalytics);
+
+// Notifications endpoints for superadmin
+router.get('/notifications', verifySuperAdmin, getNotifications);
+router.patch('/notifications/mark-all-read', verifySuperAdmin, markAllNotificationsRead);
 
 // Profile and settings endpoints
 router.get('/profile', verifySuperAdmin, getProfile);

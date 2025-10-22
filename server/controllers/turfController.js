@@ -1,4 +1,5 @@
 import Turf from "../models/Turf.js";
+import AuditLog from '../models/AuditLog.js';
 import fs from 'fs';
 import path from 'path';
 import cloudinary from '../config/cloudinary.js';
@@ -25,8 +26,37 @@ export const createTurf = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields: name, location, pricePerHour' });
     }
 
-    // Remove all upload/image logic
+    // Handle uploaded image if present
     let images = [];
+    if (req.file && req.file.buffer) {
+      try {
+        if (cloudinary && cloudinary.uploader && typeof cloudinary.uploader.upload_stream === 'function') {
+          // upload buffer to cloudinary using upload_stream
+          const uploadResult = await new Promise((resolve, reject) => {
+            try {
+              const stream = cloudinary.uploader.upload_stream({ folder: 'turfs' }, (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+              });
+              stream.end(req.file.buffer);
+            } catch (e) {
+              reject(e);
+            }
+          });
+          if (uploadResult && uploadResult.secure_url) images.push(uploadResult.secure_url);
+        } else {
+          // Fallback: write to local uploads folder (dev only)
+          const uploadsDir = path.join(process.cwd(), 'uploads');
+          if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+          const filename = `turf_${Date.now()}_${(req.file.originalname || '').replace(/[^a-zA-Z0-9.\-]/g, '_')}`;
+          const dest = path.join(uploadsDir, filename);
+          fs.writeFileSync(dest, req.file.buffer);
+          images.push(`/uploads/${filename}`);
+        }
+      } catch (imgErr) {
+        console.warn('Image upload failed:', imgErr?.message || imgErr);
+      }
+    }
 
     // Auto-approve turfs created by admin or superadmin so they're visible immediately
   const autoApprove = req.user ? (req.user?.role === 'admin' || req.user?.role === 'superadmin') : false;
@@ -106,11 +136,51 @@ export const updateTurf = async (req, res) => {
       return res.status(403).json({ message: "Not authorized to edit this turf" });
     }
 
-    const updatedTurf = await Turf.findByIdAndUpdate(req.params.id, req.body, {
+    // Handle possible image upload on update
+    let images = turf.images || [];
+    if (req.file && req.file.buffer) {
+      try {
+        if (cloudinary && cloudinary.uploader && typeof cloudinary.uploader.upload_stream === 'function') {
+          const uploadResult = await new Promise((resolve, reject) => {
+            try {
+              const stream = cloudinary.uploader.upload_stream({ folder: 'turfs' }, (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+              });
+              stream.end(req.file.buffer);
+            } catch (e) { reject(e); }
+          });
+          if (uploadResult && uploadResult.secure_url) images.unshift(uploadResult.secure_url);
+        } else {
+          const uploadsDir = path.join(process.cwd(), 'uploads');
+          if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+          const filename = `turf_${Date.now()}_${(req.file.originalname || '').replace(/[^a-zA-Z0-9.\-]/g, '_')}`;
+          const dest = path.join(uploadsDir, filename);
+          fs.writeFileSync(dest, req.file.buffer);
+          images.unshift(`/uploads/${filename}`);
+        }
+      } catch (imgErr) {
+        console.warn('updateTurf image upload failed:', imgErr?.message || imgErr);
+      }
+    }
+
+    // Merge body updates and images
+    const payload = { ...(req.body || {}) };
+    if (images && images.length) payload.images = images;
+
+    const updatedTurf = await Turf.findByIdAndUpdate(req.params.id, payload, {
       new: true,
     });
 
-    res.json({ message: "Turf updated", turf: updatedTurf });
+    // Build imageUrl for convenience (first image)
+    const baseUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4500}`;
+    let imageUrl = null;
+    if (updatedTurf.images && updatedTurf.images.length) {
+      imageUrl = updatedTurf.images[0];
+      if (!imageUrl.startsWith('http')) imageUrl = `${baseUrl}${imageUrl}`;
+    }
+
+    res.json({ message: "Turf updated", turf: updatedTurf, imageUrl });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -119,6 +189,7 @@ export const updateTurf = async (req, res) => {
 // 🔴 DELETE TURF
 export const deleteTurf = async (req, res) => {
   try {
+    console.log('deleteTurf called for id:', req.params.id, 'by user:', req.user ? { id: req.user._id, role: req.user.role } : null);
     const turf = await Turf.findById(req.params.id);
     if (!turf) return res.status(404).json({ message: "Turf not found" });
 
@@ -140,9 +211,16 @@ export const blockTurf = async (req, res) => {
   try {
     const turf = await Turf.findById(req.params.id);
     if (!turf) return res.status(404).json({ message: "Turf not found" });
-
+    const { reason } = req.body || {};
     turf.isApproved = false;
+    turf.status = 'blocked';
+    if (reason) turf.blockReason = String(reason).slice(0, 1000);
+    turf.lastBlockedAt = new Date();
     await turf.save();
+
+    try {
+      await AuditLog.create({ action: 'block_turf', actor: req.user?._id, actorSnapshot: req.user ? { id: req.user._id, name: req.user.name, email: req.user.email } : null, targetTurf: turf._id, meta: { reason: turf.blockReason } });
+    } catch (logErr) { console.warn('audit log failed for blockTurf', logErr?.message || logErr); }
 
     res.json({ message: "Turf blocked successfully", turf });
   } catch (error) {
@@ -168,9 +246,16 @@ export const approveTurf = async (req, res) => {
   try {
     const turf = await Turf.findById(req.params.id);
     if (!turf) return res.status(404).json({ message: "Turf not found" });
-
     turf.isApproved = true;
+    turf.status = 'active';
+    // clear block reason when approving
+    turf.blockReason = '';
+    turf.lastBlockedAt = undefined;
     await turf.save();
+
+    try {
+      await AuditLog.create({ action: 'approve_turf', actor: req.user?._id, actorSnapshot: req.user ? { id: req.user._id, name: req.user.name, email: req.user.email } : null, targetTurf: turf._id, meta: {} });
+    } catch (logErr) { console.warn('audit log failed for approveTurf', logErr?.message || logErr); }
 
     res.json({ message: "Turf approved successfully", turf });
   } catch (error) {

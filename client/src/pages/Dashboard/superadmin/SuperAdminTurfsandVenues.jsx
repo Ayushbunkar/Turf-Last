@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Search,
   MapPin,
+  MoreVertical,
 } from "lucide-react";
 
 import SuperAdminPageTemplate from './SuperAdminPageTemplate';
@@ -27,7 +28,12 @@ import superAdminService from '../../../services/superAdminService';
 import toast from 'react-hot-toast';
 import TurfForm from '../TurfAdminDashboard/TurfForm';
 
-const PLACEHOLDER = "https://via.placeholder.com/400x300?text=No+Image";
+const PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(`
+  <svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'>
+    <rect width='100%' height='100%' fill='#f3f4f6'/>
+    <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#9ca3af' font-family='Arial, Helvetica, sans-serif' font-size='18'>No Image</text>
+  </svg>
+`);
 
 const getStatusBadge = (status) => {
   const safeStatus = (typeof status === 'string' && status.length > 0) ? status : 'pending';
@@ -82,6 +88,13 @@ const TurfDetailsModal = ({ turf, isOpen, onClose }) => {
               <div className="flex items-center text-gray-700"><IndianRupee className="w-4 h-4 mr-1" />Revenue: ₹{turf.revenue || 0}</div>
             </div>
             <div className="mt-2">{getStatusBadge(turf.status)}</div>
+            {turf.blockReason ? (
+              <div className="mt-3 p-3 bg-red-50 rounded">
+                <h4 className="text-sm font-medium text-red-700">Block reason</h4>
+                <p className="text-sm text-red-600">{turf.blockReason}</p>
+                {turf.lastBlockedAt ? <div className="text-xs text-gray-500 mt-1">Blocked at: {new Date(turf.lastBlockedAt).toLocaleString()}</div> : null}
+              </div>
+            ) : null}
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
               <h3 className="font-medium text-gray-900 mb-2">Owner</h3>
               <div className="text-gray-700 text-sm space-y-1">
@@ -122,6 +135,7 @@ const DeleteModal = ({ turf, isOpen, onClose, onConfirm }) => {
 
 const SuperAdminTurfsandVenues = () => {
   const [turfs, setTurfs] = useState([]);
+  const [turfStats, setTurfStats] = useState({ totalTurfs: null, activeTurfs: null, pendingTurfs: null, blockedTurfs: null });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -136,48 +150,183 @@ const SuperAdminTurfsandVenues = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddTurfModal, setShowAddTurfModal] = useState(false);
   const [showEditTurfModal, setShowEditTurfModal] = useState(false);
+  const [statusChanging, setStatusChanging] = useState({});
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [showBlockReasonModal, setShowBlockReasonModal] = useState(false);
+  const [blockReasonForBatch, setBlockReasonForBatch] = useState('');
+  const [showSingleBlockModal, setShowSingleBlockModal] = useState(false);
+  const [singleBlockTurfId, setSingleBlockTurfId] = useState(null);
+  const [singleBlockReason, setSingleBlockReason] = useState('');
+  const [menuOpen, setMenuOpen] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
 
+  const toggleMenu = (id) => setMenuOpen(m => ({ ...m, [id]: !m[id] }));
+  const closeMenu = (id) => setMenuOpen(m => ({ ...m, [id]: false }));
+
+  // close any open menu when clicking outside
   useEffect(() => {
-    const fetchTurfs = async () => {
-      setLoading(true);
-      try {
-        const res = await superAdminService.getAllTurfs({
-          page: currentPage,
-          limit: 12,
-          search: searchTerm,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          category: categoryFilter !== 'all' ? categoryFilter : undefined,
-          sortBy,
-        });
-        setTurfs(res.turfs || []);
-        setTotalPages(res.pagination?.totalPages || 1);
-      } catch {
-        setTurfs([]);
-        setTotalPages(1);
-      } finally {
-        setLoading(false);
+    const handler = (e) => {
+      if (Object.values(menuOpen).some(Boolean)) {
+        setMenuOpen({});
       }
     };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [menuOpen]);
+
+  // fetch lists and stats (extracted so callers can refresh after create/update)
+  const fetchTurfs = async (page = currentPage) => {
+    setLoading(true);
+    try {
+      // ensure current page is set to requested page
+      if (page !== currentPage) setCurrentPage(page);
+      const res = await superAdminService.getAllTurfs({
+        page,
+        limit: 12,
+        search: searchTerm,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        sortBy,
+      });
+      setTurfs(res.turfs || []);
+      setTotalPages(res.pagination?.totalPages || 1);
+    } catch (e) {
+      console.error('fetchTurfs error', e);
+      setTurfs([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBatchBlockConfirm = async (reason) => {
+    if (!selectedIds.length) return;
+    try {
+      setBatchLoading(true);
+      setTurfs(list => list.map(t => selectedIds.includes(t._id || t.id) ? { ...t, status: 'blocked' } : t));
+      await superAdminService.batchSetTurfStatus(selectedIds, 'blocked', reason || '');
+      setSelectedIds([]);
+      fetchTurfStats();
+      toast.success('Selected turfs blocked');
+      fetchTurfs();
+    } catch (err) {
+      console.error('batch block err', err);
+      toast.error('Batch block failed');
+      fetchTurfs();
+    } finally {
+      setBatchLoading(false);
+      setShowBlockReasonModal(false);
+      setBlockReasonForBatch('');
+    }
+  };
+
+  const handleSingleBlockConfirm = async () => {
+    const turfId = singleBlockTurfId;
+    if (!turfId) return;
+    try {
+      setStatusChanging(s => ({ ...s, [turfId]: 'blocked' }));
+      await handleSetTurfStatus(turfId, 'blocked', singleBlockReason || '');
+      toast.success('Turf blocked');
+      fetchTurfs();
+    } catch (err) {
+      console.error('single block err', err);
+      toast.error('Failed to block turf');
+      fetchTurfs();
+    } finally {
+      setShowSingleBlockModal(false);
+      setSingleBlockTurfId(null);
+      setSingleBlockReason('');
+    }
+  };
+
+  const fetchTurfStats = async () => {
+    try {
+      const stats = await superAdminService.getTurfStats();
+      // Normalize to numbers or null
+      const toNum = v => (v === undefined || v === null ? null : Number(v));
+      setTurfStats({
+        totalTurfs: toNum(stats?.totalTurfs ?? stats?.total),
+        activeTurfs: toNum(stats?.activeTurfs ?? stats?.active),
+        pendingTurfs: toNum(stats?.pendingTurfs ?? stats?.pending),
+        blockedTurfs: toNum(stats?.blockedTurfs ?? stats?.blocked),
+      });
+    } catch (err) {
+      // keep nulls as fallback
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      // fetch fresh data for page 1 and refresh stats
+      await Promise.all([fetchTurfs(1), fetchTurfStats()]);
+      toast.success('Refreshed');
+    } catch (err) {
+      console.error('refresh error', err);
+      toast.error('Failed to refresh');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchTurfs();
+    fetchTurfStats();
   }, [currentPage, searchTerm, statusFilter, categoryFilter, sortBy]);
 
   const handleDelete = async (turfId) => {
+    console.log('Attempting delete for turfId:', turfId);
     try {
       await superAdminService.deleteTurf(turfId);
       toast.success("Turf deleted");
       setShowDeleteModal(false);
       setSelectedTurf(null);
       setCurrentPage(1);
-    } catch {
-      toast.error("Failed to delete");
+    } catch (err) {
+      console.error('deleteTurf error:', err);
+      const msg = err?.message || 'Failed to delete';
+      // If server says resource not found, remove it from client list to avoid repeated 404s
+      if (err?.status === 404) {
+        toast.error('Turf not found on server — removing from list');
+        setTurfs(prev => prev.filter(t => (t._id || t.id) !== turfId));
+        setShowDeleteModal(false);
+        setSelectedTurf(null);
+        return;
+      }
+      toast.error(msg);
     }
   };
 
+  const handleSetTurfStatus = async (turfId, status, reason = '') => {
+    const prev = turfs;
+    try {
+      setStatusChanging(s => ({ ...s, [turfId]: status }));
+      // optimistic update
+      setTurfs(list => list.map(t => (t._id === turfId || t.id === turfId) ? { ...t, status } : t));
+      await superAdminService.setTurfStatus(turfId, status, { reason });
+      fetchTurfStats();
+    } catch (err) {
+      console.error('setTurfStatus error', err);
+      setTurfs(prev);
+      toast.error('Failed to update status');
+    } finally {
+      setStatusChanging(s => { const c = { ...s }; delete c[turfId]; return c; });
+    }
+  };
+
+  const calcClient = {
+    total: turfs.length,
+    active: turfs.filter(t => t.status === 'active').length,
+    pending: turfs.filter(t => t.status === 'pending').length,
+    blocked: turfs.filter(t => t.status === 'blocked').length,
+  };
+
   const statCards = [
-    { title: 'Total Turfs', value: turfs.length, icon: Building, color: 'blue', description: 'Total number of turfs.' },
-    { title: 'Active Turfs', value: turfs.filter(t => t.status === 'active').length, icon: CheckCircle, color: 'green', description: 'Currently active turfs.' },
-    { title: 'Pending Turfs', value: turfs.filter(t => t.status === 'pending').length, icon: Clock, color: 'yellow', description: 'Turfs pending approval.' },
-    { title: 'Blocked Turfs', value: turfs.filter(t => t.status === 'blocked').length, icon: XCircle, color: 'purple', description: 'Blocked or inactive turfs.' },
+    { title: 'Total Turfs', value: turfStats.totalTurfs ?? calcClient.total, icon: Building, color: 'blue', description: 'Total number of turfs.' },
+    { title: 'Active Turfs', value: turfStats.activeTurfs ?? calcClient.active, icon: CheckCircle, color: 'green', description: 'Currently active turfs.' },
+    { title: 'Pending Turfs', value: turfStats.pendingTurfs ?? calcClient.pending, icon: Clock, color: 'yellow', description: 'Turfs pending approval.' },
+    { title: 'Blocked Turfs', value: turfStats.blockedTurfs ?? calcClient.blocked, icon: XCircle, color: 'purple', description: 'Blocked or inactive turfs.' },
   ];
 
   return (
@@ -192,8 +341,8 @@ const SuperAdminTurfsandVenues = () => {
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage all turfs, venues and their operations</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => setCurrentPage(1)} className="flex items-center px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">
-              <RefreshCw className="w-4 h-4" /><span className="ml-1 hidden sm:inline">Refresh</span>
+            <button onClick={handleRefresh} className={`flex items-center px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 ${refreshing ? 'opacity-75' : ''}`}>
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /><span className="ml-1 hidden sm:inline">Refresh</span>
             </button>
             <button onClick={() => setShowAddTurfModal(true)} className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
               <Plus className="w-4 h-4" /><span className="ml-1">Add Turf</span>
@@ -258,18 +407,30 @@ const SuperAdminTurfsandVenues = () => {
           </select>
         </div>
 
+        {/* Batch actions toolbar */}
+        <div className="mb-4 flex items-center gap-3">
+          <input type="checkbox" className="w-4 h-4" checked={selectedIds.length === turfs.length && turfs.length > 0} onChange={(e) => {
+            if (e.target.checked) setSelectedIds(turfs.map(t => t._id || t.id)); else setSelectedIds([]);
+          }} />
+          <div className="text-sm text-gray-700">Select all ({turfs.length})</div>
+          <div className="ml-auto text-sm text-gray-600">Use the action buttons on each turf card to change status</div>
+        </div>
+
         {/* Turfs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {turfs.map((turf, index) => (
+          {turfs.map((turf, index) => {
+            const turfId = turf._id || turf.id || index;
+            const isSelected = selectedIds.includes(turfId);
+            return (
             <motion.div
-              key={turf._id || turf.id || index}
+              key={turfId}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="bg-gray-50 rounded-xl overflow-hidden shadow-sm border border-gray-100"
+              className="bg-gray-50 rounded-xl shadow-sm border border-gray-100"
             >
               {/* Turf Image */}
-              <div className="relative h-48 overflow-hidden">
+              <div className="relative h-36 overflow-hidden">
                 <img
                   src={(Array.isArray(turf.images) && turf.images[0]) ? turf.images[0] : PLACEHOLDER}
                   alt={turf.name}
@@ -284,41 +445,101 @@ const SuperAdminTurfsandVenues = () => {
                   </div>
                 </div>
               </div>
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">{turf.name}</h3>
-                <div className="flex items-center text-gray-600 mb-2"><MapPin className="w-4 h-4 mr-2" />{turf.location}</div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-gray-500">{turf.category}</span>
-                  <span className="text-lg font-bold text-blue-600 flex items-center"><span className="mr-1">₹</span>{turf.pricePerHour}/hr</span>
+              <div className="p-3">
+                <div className="mb-2">
+                  <input type="checkbox" checked={isSelected} onChange={(e) => {
+                    setSelectedIds(prev => e.target.checked ? [...new Set([...prev, turfId])] : prev.filter(id => id !== turfId));
+                  }} />
                 </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">{turf.name}</h3>
+                  {turf.blockReason ? (
+                    <div className="mb-3 p-2 bg-red-50 rounded text-sm text-red-700">
+                      <div className="font-medium text-red-700 text-sm">Blocked</div>
+                      <div className="text-xs text-red-600 whitespace-pre-wrap mt-1">{turf.blockReason}</div>
+                      {turf.lastBlockedAt ? <div className="text-xs text-gray-500 mt-1">Blocked at: {new Date(turf.lastBlockedAt).toLocaleString()}</div> : null}
+                    </div>
+                  ) : null}
+                <div className="flex items-center text-gray-600 mb-2 text-sm"><MapPin className="w-4 h-4 mr-2" />{turf.location}</div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-500">{turf.category}</span>
+                  <span className="text-sm font-bold text-blue-600 flex items-center"><span className="mr-1">₹</span>{turf.pricePerHour}/hr</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="text-center p-2 bg-white rounded-lg border border-gray-200">
                     <Calendar className="w-4 h-4 text-gray-600 mx-auto mb-1" />
                     <div className="text-sm font-medium text-gray-900">{turf.totalBookings || 0}</div>
                     <div className="text-xs text-gray-500">Bookings</div>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
+                  <div className="text-center p-2 bg-white rounded-lg border border-gray-200">
                     <IndianRupee className="w-4 h-4 text-gray-600 mx-auto mb-1" />
                     <div className="text-sm font-medium text-gray-900">{turf.revenue || 0}</div>
                     <div className="text-xs text-gray-500">Revenue</div>
                   </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <button onClick={() => { setSelectedTurf(turf); setShowDetailsModal(true); }} className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">
+                <div className="flex justify-between items-start">
+                  <button onClick={() => { setSelectedTurf(turf); setShowDetailsModal(true); }} className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">
                     <Eye className="w-4 h-4" /> View
                   </button>
-                  <div className="flex gap-2">
-                    <button onClick={() => { setEditingTurf(turf); setShowEditTurfModal(true); }} className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-                      <Edit className="w-4 h-4" /> Edit
-                    </button>
-                    <button onClick={() => { setSelectedTurf(turf); setShowDeleteModal(true); }} className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">
-                      <Trash2 className="w-4 h-4" /> Delete
-                    </button>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex gap-2">
+                      <button onClick={() => { setEditingTurf(turf); setShowEditTurfModal(true); }} className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+                        <Edit className="w-4 h-4" /> Edit
+                      </button>
+                      <button onClick={() => { setSelectedTurf(turf); setShowDeleteModal(true); }} className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">
+                        <Trash2 className="w-4 h-4" /> Delete
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Inline buttons for sm+ screens */}
+                      <div className="hidden sm:flex items-center gap-2">
+                        <button
+                          disabled={!!statusChanging[turfId]}
+                          onClick={async () => { setStatusChanging(s => ({ ...s, [turfId]: 'active' })); try { await handleSetTurfStatus(turfId, 'active'); } finally { setStatusChanging(s => { const c = { ...s }; delete c[turfId]; return c; }); } }}
+                          className="min-w-[72px] px-2 py-1 rounded-full bg-green-600 text-white text-sm flex items-center justify-center gap-2 hover:bg-green-700 disabled:opacity-60"
+                        >
+                          {statusChanging[turfId] === 'active' ? (<svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle></svg>) : null}
+                          Approve
+                        </button>
+
+                        <button
+                          disabled={!!statusChanging[turfId]}
+                          onClick={() => { setSingleBlockTurfId(turfId); setSingleBlockReason(''); setShowSingleBlockModal(true); }}
+                          className="min-w-[64px] px-2 py-1 rounded-full bg-red-600 text-white text-sm flex items-center justify-center gap-2 hover:bg-red-700 disabled:opacity-60"
+                        >
+                          {statusChanging[turfId] === 'blocked' ? (<svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle></svg>) : null}
+                          Block
+                        </button>
+
+                        <button
+                          disabled={!!statusChanging[turfId]}
+                          onClick={async () => { setStatusChanging(s => ({ ...s, [turfId]: 'pending' })); try { await handleSetTurfStatus(turfId, 'pending'); } finally { setStatusChanging(s => { const c = { ...s }; delete c[turfId]; return c; }); } }}
+                          className="min-w-[72px] px-2 py-1 rounded-full bg-yellow-500 text-white text-sm flex items-center justify-center gap-2 hover:bg-yellow-600 disabled:opacity-60"
+                        >
+                          {statusChanging[turfId] === 'pending' ? (<svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle></svg>) : null}
+                          Pending
+                        </button>
+                      </div>
+
+                      {/* Kebab dropdown for xs screens */}
+                      <div className="sm:hidden relative">
+                        <button onClick={(e) => { e.stopPropagation(); toggleMenu(turfId); }} className="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
+                          <MoreVertical className="w-5 h-5 text-gray-700" />
+                        </button>
+                        {menuOpen[turfId] ? (
+                          <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-50 transform transition-all duration-150 ease-out">
+                            <button onClick={async () => { closeMenu(turfId); setStatusChanging(s => ({ ...s, [turfId]: 'active' })); try { await handleSetTurfStatus(turfId, 'active'); toast.success('Approved'); } finally { setStatusChanging(s => { const c = { ...s }; delete c[turfId]; return c; }); } }} className="w-full text-left px-3 py-2 hover:bg-gray-50">Approve</button>
+                            <button onClick={() => { closeMenu(turfId); setSingleBlockTurfId(turfId); setSingleBlockReason(''); setShowSingleBlockModal(true); toast('Opening block reason'); }} className="w-full text-left px-3 py-2 hover:bg-gray-50">Block</button>
+                            <button onClick={async () => { closeMenu(turfId); setStatusChanging(s => ({ ...s, [turfId]: 'pending' })); try { await handleSetTurfStatus(turfId, 'pending'); toast.success('Set to pending'); } finally { setStatusChanging(s => { const c = { ...s }; delete c[turfId]; return c; }); } }} className="w-full text-left px-3 py-2 hover:bg-gray-50">Pending</button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </motion.div>
-          ))}
+              );
+          })}
         </div>
 
       </div>
@@ -327,13 +548,39 @@ const SuperAdminTurfsandVenues = () => {
       <TurfDetailsModal turf={selectedTurf} isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} />
       <DeleteModal turf={selectedTurf} isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={handleDelete} />
 
+      {/* Block Reason Modal for batch blocking */}
+      <Modal isOpen={showBlockReasonModal} onClose={() => setShowBlockReasonModal(false)}>
+        <div className="p-4">
+          <h3 className="text-lg font-semibold mb-2">Block Selected Turfs</h3>
+          <p className="text-sm text-gray-600 mb-3">Provide an optional reason that will be recorded for these turfs.</p>
+          <textarea value={blockReasonForBatch} onChange={(e) => setBlockReasonForBatch(e.target.value)} rows={4} className="w-full p-2 border rounded-lg" placeholder="Reason (optional)"></textarea>
+          <div className="flex justify-end gap-2 mt-3">
+            <button onClick={() => { setShowBlockReasonModal(false); setBlockReasonForBatch(''); }} className="px-3 py-2 border rounded-lg">Cancel</button>
+            <button onClick={() => handleBatchBlockConfirm(blockReasonForBatch)} disabled={batchLoading} className="px-3 py-2 bg-red-600 text-white rounded-lg">Block</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Single Turf Block Modal */}
+      <Modal isOpen={showSingleBlockModal} onClose={() => { setShowSingleBlockModal(false); setSingleBlockTurfId(null); setSingleBlockReason(''); }}>
+        <div className="p-4">
+          <h3 className="text-lg font-semibold mb-2">Block Turf</h3>
+          <p className="text-sm text-gray-600 mb-3">Provide an optional reason that will be recorded for this turf.</p>
+          <textarea value={singleBlockReason} onChange={(e) => setSingleBlockReason(e.target.value)} rows={4} className="w-full p-2 border rounded-lg" placeholder="Reason (optional)"></textarea>
+          <div className="flex justify-end gap-2 mt-3">
+            <button onClick={() => { setShowSingleBlockModal(false); setSingleBlockTurfId(null); setSingleBlockReason(''); }} className="px-3 py-2 border rounded-lg">Cancel</button>
+            <button onClick={handleSingleBlockConfirm} disabled={!!statusChanging[singleBlockTurfId] || batchLoading} className="px-3 py-2 bg-red-600 text-white rounded-lg">Block</button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Turf Forms */}
-      <TurfForm isOpen={showAddTurfModal} onClose={() => setShowAddTurfModal(false)} onTurfAdded={() => { setShowAddTurfModal(false); setCurrentPage(1); }} />
+      <TurfForm isOpen={showAddTurfModal} onClose={() => setShowAddTurfModal(false)} onTurfAdded={() => { setShowAddTurfModal(false); setCurrentPage(1); fetchTurfs(); }} />
       <TurfForm
         isOpen={showEditTurfModal}
         editingTurf={editingTurf}
         onClose={() => { setShowEditTurfModal(false); setEditingTurf(null); }}
-        onTurfAdded={() => { setShowEditTurfModal(false); setEditingTurf(null); setCurrentPage(1); }}
+        onTurfAdded={() => { setShowEditTurfModal(false); setEditingTurf(null); setCurrentPage(1); fetchTurfs(); }}
       />
     </SuperAdminPageTemplate>
   );

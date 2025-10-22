@@ -8,8 +8,9 @@ const userSchema = new mongoose.Schema(
     // Optional contact fields
     phone: { type: String },
     address: { type: String },
-    // Administrative/status fields
-    status: { type: String, enum: ['active', 'pending', 'blocked', 'suspended'], default: 'pending' },
+  // Administrative/status fields
+  // Note: include 'inactive' as an accepted legacy/status value used by frontend
+  status: { type: String, enum: ['active', 'pending', 'blocked', 'suspended', 'inactive'], default: 'pending' },
     role: {
       type: String,
       enum: ["user", "Turfadmin", "superadmin"],

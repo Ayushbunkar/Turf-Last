@@ -23,7 +23,9 @@ const SuperAdminTurfAdminsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editAdmin, setEditAdmin] = useState(null);
   const [newAdmin, setNewAdmin] = useState({ name:'', email:'', password:'', phone:'', address:'' });
-  const [stats, setStats] = useState({ total:0, active:0, pending:0, blocked:0, totalTurfs:0, avgRating:0 });
+  const [stats, setStats] = useState({ total:null, active:null, pending:null, blocked:null, totalTurfs:null, avgRating:null });
+  const [deleting, setDeleting] = useState({});
+  const [statusChanging, setStatusChanging] = useState({});
 
   const pieData = [
     { name: 'Active', value: stats.active },
@@ -40,6 +42,34 @@ const SuperAdminTurfAdminsPage = () => {
     fetchTurfAdmins();
     fetchStats();
   }, [currentPage, searchTerm, statusFilter]);
+
+  // Change turf admin status (approve / block / unblock) with optimistic UI
+  const handleChangeAdminStatus = async (admin, newStatus) => {
+    const id = admin.id || admin._id;
+    const prev = turfAdmins;
+    try {
+      // mark as changing
+      setStatusChanging(s => ({ ...s, [id]: true }));
+      // optimistic update
+      setTurfAdmins(list => list.map(a => a.id === id ? { ...a, status: newStatus } : a));
+
+      await superAdminService.updateTurfAdminStatus(id, newStatus);
+      toast.success(`Admin ${newStatus}`);
+      // refresh counts and ensure consistent state
+      fetchStats();
+    } catch (err) {
+      console.error('Failed to change admin status', err);
+      // rollback
+      setTurfAdmins(prev);
+      toast.error('Failed to change status');
+    } finally {
+      setStatusChanging(s => {
+        const copy = { ...s };
+        delete copy[id];
+        return copy;
+      });
+    }
+  };
 
   const fetchTurfAdmins = async () => {
     try {
@@ -64,14 +94,18 @@ const SuperAdminTurfAdminsPage = () => {
   const fetchStats = async () => {
     try {
       const res = await superAdminService.getTurfAdminStats();
-      const safeNum = v => v == null ? 0 : Number(v) || 0;
+      const toNumberOrNull = v => {
+        if (v === undefined || v === null) return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
       setStats({
-        total: safeNum(res?.totalTurfAdmins ?? res?.total),
-        active: safeNum(res?.activeTurfAdmins ?? res?.active),
-        pending: safeNum(res?.pendingTurfAdmins ?? res?.pending),
-        blocked: safeNum(res?.blockedTurfAdmins ?? res?.blocked),
-        totalTurfs: safeNum(res?.totalTurfs),
-        avgRating: safeNum(res?.avgRating),
+        total: toNumberOrNull(res?.totalTurfAdmins ?? res?.total),
+        active: toNumberOrNull(res?.activeTurfAdmins ?? res?.active),
+        pending: toNumberOrNull(res?.pendingTurfAdmins ?? res?.pending),
+        blocked: toNumberOrNull(res?.blockedTurfAdmins ?? res?.blocked),
+        totalTurfs: toNumberOrNull(res?.totalTurfs ?? res?.totalTurfs),
+        avgRating: toNumberOrNull(res?.avgRating ?? res?.avgRating),
       });
     } catch (err) {
       console.error(err);
@@ -102,12 +136,18 @@ const SuperAdminTurfAdminsPage = () => {
     return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}><Icon className="w-3 h-3 mr-1"/>{status.charAt(0).toUpperCase()+status.slice(1)}</span>;
   };
 
+  const formatStat = (v, opts = {}) => {
+    if (v === null || v === undefined) return '-';
+    if (opts.decimals != null) return Number(v).toFixed(opts.decimals);
+    return v;
+  };
+
   const statCards = [
     { title: "Total Turf Admins", value: stats.total, icon: Shield, color: "blue" },
     { title: "Active Admins", value: stats.active, icon: CheckCircle, color: "green" },
     { title: "Pending Admins", value: stats.pending, icon: Clock, color: "yellow" },
     { title: "Total Turfs Managed", value: stats.totalTurfs, icon: Users, color: "purple" },
-    { title: "Average Rating", value: stats.avgRating.toFixed(1), icon: Star, color: "orange" }
+    { title: "Average Rating", value: stats.avgRating, icon: Star, color: "orange", format: { decimals: 1 } }
   ];
 
   return (
@@ -123,7 +163,7 @@ const SuperAdminTurfAdminsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">{card.title}</h3>
-                  <p className="mt-1 text-xl font-semibold text-gray-900">{card.value}</p>
+                  <p className="mt-1 text-xl font-semibold text-gray-900">{card.format ? formatStat(card.value, card.format) : formatStat(card.value)}</p>
                 </div>
                 <card.icon className={`w-6 h-6 text-${card.color}-500`}/>
               </div>
@@ -203,8 +243,17 @@ const SuperAdminTurfAdminsPage = () => {
                   <td className="px-4 py-2 text-right flex justify-end gap-2">
                     <button onClick={()=>{setSelectedAdmin(admin);setShowViewModal(true);}} className="p-1 bg-gray-100 rounded" title="View"><Eye className="w-4 h-4"/></button>
                     <button onClick={()=>{setEditAdmin(admin);setShowEditModal(true);}} className="p-1 bg-gray-100 rounded" title="Edit"><Edit className="w-4 h-4"/></button>
-                    <button onClick={()=>{setSelectedAdmin(admin);setShowDeleteModal(true);}} className="p-1 bg-red-100 rounded" title="Delete"><Trash2 className="w-4 h-4 text-red-600"/></button>
-                    {admin.status==='blocked' && <button onClick={()=>{/* unblock logic here */}} className="p-1 bg-green-100 rounded" title="Unblock"><Unlock className="w-4 h-4 text-green-600"/></button>}
+                      <button onClick={()=>{setSelectedAdmin(admin);setShowDeleteModal(true);}} className="p-1 bg-red-100 rounded" title="Delete"><Trash2 className="w-4 h-4 text-red-600"/></button>
+                    {/* Status action buttons: Approve (pending -> active), Block (active -> blocked), Unblock (blocked -> active) */}
+                    {admin.status === 'pending' && (
+                      <button onClick={()=>handleChangeAdminStatus(admin, 'active')} className="p-1 bg-green-100 rounded" title="Approve"><CheckCircle className="w-4 h-4 text-green-600"/></button>
+                    )}
+                    {admin.status === 'active' && (
+                      <button onClick={()=>handleChangeAdminStatus(admin, 'blocked')} className="p-1 bg-yellow-100 rounded" title="Block"><XCircle className="w-4 h-4 text-yellow-600"/></button>
+                    )}
+                    {admin.status === 'blocked' && (
+                      <button onClick={()=>handleChangeAdminStatus(admin, 'active')} className="p-1 bg-green-100 rounded" title="Unblock"><Unlock className="w-4 h-4 text-green-600"/></button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -212,27 +261,7 @@ const SuperAdminTurfAdminsPage = () => {
           </table>
         </div>
 
-        {/* Modals outside table to avoid hydration error */}
-        <AnimatePresence>
-          {showViewModal && selectedAdmin && (
-            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-xl w-full max-w-md">
-                <h3 className="text-lg font-medium mb-4">Turf Admin Details</h3>
-                <div className="space-y-2">
-                  <div><strong>Name:</strong> {selectedAdmin.name}</div>
-                  <div><strong>Email:</strong> {selectedAdmin.email}</div>
-                  <div><strong>Phone:</strong> {selectedAdmin.phone}</div>
-                  <div><strong>Address:</strong> {selectedAdmin.address}</div>
-                  <div><strong>Status:</strong> {getStatusBadge(selectedAdmin.status)}</div>
-                  <div><strong>Created At:</strong> {new Date(selectedAdmin.createdAt).toLocaleDateString()}</div>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <button onClick={()=>setShowViewModal(false)} className="px-4 py-2 bg-gray-200 rounded">Close</button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        
         {/* Modals outside table to avoid hydration error */}
         <AnimatePresence>
           {showViewModal && selectedAdmin && (
@@ -301,13 +330,22 @@ const SuperAdminTurfAdminsPage = () => {
                 <div className="mt-4 flex justify-end gap-2">
                   <button onClick={()=>setShowDeleteModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
                   <button onClick={async()=>{
+                    const id = selectedAdmin.id || selectedAdmin._id;
+                    const prev = turfAdmins;
                     try {
-                      await superAdminService.deleteTurfAdmin(selectedAdmin.id);
+                      setDeleting(d => ({ ...d, [id]: true }));
+                      // optimistic remove
+                      setTurfAdmins(list => list.filter(a => a.id !== id));
+                      await superAdminService.deleteTurfAdmin(id);
                       toast.success("Admin deleted");
                       setShowDeleteModal(false);
-                      fetchTurfAdmins();
-                    } catch {
+                      fetchStats();
+                    } catch (err) {
+                      console.error('Failed to delete admin', err);
+                      setTurfAdmins(prev);
                       toast.error("Failed to delete admin");
+                    } finally {
+                      setDeleting(d => { const c = { ...d }; delete c[id]; return c; });
                     }
                   }} className="px-4 py-2 bg-red-500 text-white rounded">Delete</button>
                 </div>

@@ -384,6 +384,7 @@ export async function getDatabasePerformance(req, res) {
 // Fetch revenue statistics for superadmin dashboard
 export async function getRevenueStats(req, res) {
   try {
+    console.debug('[DEBUG] getRevenueStats called', { user: req.user ? req.user._id : null, query: req.query });
     // Platform fee percent (set as needed)
     const PLATFORM_FEE_PERCENT = 10; // 10% platform fee
 
@@ -469,6 +470,7 @@ export async function getRevenueStats(req, res) {
 // Revenue chart data (monthly trends for chart)
 export async function getRevenueChartData(req, res) {
   try {
+    console.debug('[DEBUG] getRevenueChartData called', { user: req.user ? req.user._id : null, query: req.query });
     // Last 12 months revenue trends
     const revenueTrends = await Booking.aggregate([
       {
@@ -488,6 +490,7 @@ export async function getRevenueChartData(req, res) {
 // Top performing turfs by revenue
 export async function getTopPerformingTurfs(req, res) {
   try {
+    console.debug('[DEBUG] getTopPerformingTurfs called', { user: req.user ? req.user._id : null, query: req.query });
     const topTurfs = await Booking.aggregate([
       { $group: {
           _id: "$turf",
@@ -521,6 +524,7 @@ export async function getTopPerformingTurfs(req, res) {
 // Recent transactions (latest bookings)
 export async function getRecentTransactions(req, res) {
   try {
+    console.debug('[DEBUG] getRecentTransactions called', { user: req.user ? req.user._id : null, query: req.query });
     const limit = parseInt(req.query.limit) || 20;
     const recentBookings = await Booking.find({})
       .sort({ createdAt: -1 })
@@ -528,10 +532,16 @@ export async function getRecentTransactions(req, res) {
       .populate('user', 'name email')
       .populate('turf', 'name');
     const transactions = recentBookings.map(b => ({
-      id: b._id,
+      id: b._id ? String(b._id) : undefined,
       user: b.user ? { name: b.user.name, email: b.user.email } : null,
-      turf: b.turf ? b.turf.name : null,
-      price: b.price,
+      userName: b.user ? (b.user.name || b.user.email) : null,
+      turf: b.turf ? (typeof b.turf === 'string' ? b.turf : (b.turf.name || '')) : null,
+      turfName: b.turf ? (b.turf.name || '') : null,
+      turfId: b.turf && b.turf._id ? String(b.turf._id) : undefined,
+      amount: b.price ?? b.amountPaid ?? 0,
+      price: b.price ?? b.amountPaid ?? 0,
+      paymentMethod: (b.payment && b.payment.method) || 'N/A',
+      paymentStatus: (b.payment && b.payment.status) || b.status || 'unknown',
       status: b.status,
       createdAt: b.createdAt
     }));
@@ -596,9 +606,50 @@ export async function getTurfStats(req, res) {
     const activeTurfs = await Turf.countDocuments({ isApproved: true });
     // Example: count pending turfs (not approved)
     const pendingTurfs = await Turf.countDocuments({ isApproved: false });
+    const blockedTurfs = await Turf.countDocuments({ status: 'blocked' });
+  // Removed noisy debug log to avoid terminal spam in production/dev
     res.json({ totalTurfs, activeTurfs, pendingTurfs });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch turf statistics', details: err.message });
+  }
+}
+
+// Batch update status for multiple turfs (superadmin)
+export async function batchUpdateTurfsStatus(req, res) {
+  try {
+    const { turfIds, status, reason } = req.body || {};
+    if (!Array.isArray(turfIds) || !turfIds.length) return res.status(400).json({ error: 'turfIds array required' });
+    if (!status) return res.status(400).json({ error: 'status is required' });
+
+    const allowed = ['pending', 'active', 'blocked', 'maintenance'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+
+    const update = { status };
+    if (status === 'active') update.isApproved = true;
+    if (status === 'pending') update.isApproved = false;
+    if (status === 'blocked') {
+      update.isApproved = false;
+      update.blockReason = reason ? String(reason).slice(0, 1000) : '';
+      update.lastBlockedAt = new Date();
+    }
+
+    const result = await Turf.updateMany({ _id: { $in: turfIds } }, { $set: update });
+    // Create an audit log summarizing the batch operation (non-fatal)
+    // Create per-turf audit logs (best-effort, non-blocking)
+    try {
+  const snapshot = req.user ? { id: req.user._id, name: req.user.name, email: req.user.email } : null;
+  const ops = turfIds.slice(0, 500).map(id => ({ action: 'update_turf_status', actor: req.user?._id, actorSnapshot: snapshot, targetTurf: id, meta: { status, reason } }));
+  // create many in parallel but cap to reasonable number to avoid DB overload
+  await Promise.all(ops.map(o => AuditLog.create(o).catch(e => { console.warn('audit log create failed for id', o.targetTurf, e?.message || e); })));
+  // Also create a summarized batch entry
+  await AuditLog.create({ action: 'batch_update_turfs_status', actor: req.user?._id, actorSnapshot: snapshot, meta: { turfIds: turfIds.slice(0, 100), status, reason } });
+    } catch (logErr) { console.warn('audit log failed for batchUpdateTurfsStatus', logErr?.message || logErr); }
+
+    // Return number modified for UI
+    res.json({ message: 'Batch update applied', matched: result.matchedCount || result.n || 0, modified: result.modifiedCount || result.nModified || 0 });
+  } catch (err) {
+    console.error('batchUpdateTurfsStatus error:', err);
+    res.status(500).json({ error: 'Failed to batch update turfs', details: err.message });
   }
 }
 // Fetch paginated/filterable turf admins for superadmin dashboard
@@ -648,14 +699,26 @@ export async function getTurfAdmins(req, res) {
 export async function getTurfAdminStats(req, res) {
   try {
     const totalTurfAdmins = await User.countDocuments({ role: 'Turfadmin' });
-    // Example: count active turf admins (last 24h)
+
+    // Count by explicit status if you store status on the User model
+    // This will give accurate Active / Pending / Blocked numbers for the admin stat cards
+    const activeByStatus = await User.countDocuments({ role: 'Turfadmin', status: 'active' });
+    const pendingByStatus = await User.countDocuments({ role: 'Turfadmin', status: 'pending' });
+    const blockedByStatus = await User.countDocuments({ role: 'Turfadmin', status: 'blocked' });
+
+    // Also keep a "recent activity" based active count (last 24h) for optional UI
     const since = new Date();
     since.setDate(since.getDate() - 1);
-    const activeTurfAdmins = await User.countDocuments({ role: 'Turfadmin', updatedAt: { $gte: since } });
-    // Example: count pending turf admins (if you have a status field)
-    // For now, just set to 0
-    const pendingTurfAdmins = 0;
-    res.json({ totalTurfAdmins, activeTurfAdmins, pendingTurfAdmins });
+    const activeRecently = await User.countDocuments({ role: 'Turfadmin', updatedAt: { $gte: since } });
+
+    res.json({
+      totalTurfAdmins,
+      // prefer status-based counts for frontend mapping
+      activeTurfAdmins: activeByStatus,
+      pendingTurfAdmins: pendingByStatus,
+      blockedTurfAdmins: blockedByStatus,
+      activeRecently
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch turf admin statistics', details: err.message });
   }
@@ -855,10 +918,20 @@ export async function updateUserStatus(req, res) {
     if (!id) return res.status(400).json({ error: 'User id required' });
     if (!status) return res.status(400).json({ error: 'Status is required' });
 
+    // Normalize status string and accept a few common synonyms from the UI
+    const rawStatus = String(status || '').trim().toLowerCase();
+    // Map legacy/variant statuses to canonical enum values
+    const statusMap = {
+      inactive: 'blocked', // treat 'inactive' as 'blocked' by default
+      deactivate: 'blocked',
+      deactivateD: 'blocked'
+    };
+    const normalized = statusMap[rawStatus] || rawStatus;
+
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    user.status = status;
+  user.status = normalized;
     // Optionally log reason somewhere; for now attach to user.lastStatusChangeReason
     if (reason) user.lastStatusChangeReason = reason;
     await user.save();
@@ -1034,15 +1107,12 @@ export async function updateProfile(req, res) {
     }
     if (merged.phone !== undefined) {
       const phone = String(merged.phone).replace(/[^0-9+]/g, '');
-      if (phone.length < 7 || phone.length > 15) fieldErrors.phone = 'Phone must be 7-15 digits';
+      // Basic phone validation
+      if (phone.length < 6) fieldErrors.phone = 'Invalid phone number';
       else merged.phone = phone;
     }
-
-    if (Object.keys(fieldErrors).length > 0) {
-      console.warn('updateProfile validation failed for', userId.toString(), fieldErrors);
-      return res.status(400).json({ error: 'Validation failed', fieldErrors });
-    }
-
+    // Prepare final updates object with only allowed keys
+    
     // Prepare final updates object with only allowed keys
     const updates = {};
     allowed.forEach(k => { if (Object.prototype.hasOwnProperty.call(merged, k)) updates[k] = merged[k]; });
@@ -1122,6 +1192,34 @@ export async function updateNotificationSettings(req, res) {
     res.json({ settings: settings.notifications });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update notification settings', details: err.message });
+  }
+}
+
+// Simple notifications endpoint (returns sample notifications). In a real system
+// these would be stored per-user in a collection; this is a minimal implementation
+// so the UI can mark notifications as read via an API call.
+export async function getNotifications(req, res) {
+  try {
+    // Example static notifications; replace with DB-backed notifications later.
+    const notifications = [
+      { id: 1, title: 'Backup Completed', message: 'Daily DB backup finished successfully.', time: '2m ago', ai: true, read: false },
+      { id: 2, title: 'High CPU Usage', message: 'CPU usage spiked to 92% on server-3.', time: '10m ago', ai: false, read: false },
+      { id: 3, title: 'New Support Ticket', message: 'Ticket #482: User cannot complete booking.', time: '1h ago', ai: true, read: false }
+    ];
+    res.json({ notifications });
+  } catch (err) {
+    res.status(500).json({ notifications: [] });
+  }
+}
+
+// Mark all notifications read - this is a no-op placeholder for now that returns
+// success. In a production system you'd update notifications in the DB.
+export async function markAllNotificationsRead(req, res) {
+  try {
+    // TODO: persist this change in DB per-user. For now just return success.
+    res.json({ success: true, message: 'All notifications marked as read' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to mark notifications read', details: err.message });
   }
 }
 

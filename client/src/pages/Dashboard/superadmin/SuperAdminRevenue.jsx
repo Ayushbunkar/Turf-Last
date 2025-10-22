@@ -45,6 +45,9 @@ import toast from 'react-hot-toast';
 
 const SuperAdminRevenue = () => {
   const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
+  const [rawResponses, setRawResponses] = useState(null);
+  const [showRaw, setShowRaw] = useState(false);
   const [timeFilter, setTimeFilter] = useState('30d');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -71,7 +74,9 @@ const SuperAdminRevenue = () => {
 
   const fetchRevenueData = async () => {
     try {
-      setLoading(true);
+      // If this is the initial load, use the global loading state which shows the full-page loader.
+      // For subsequent refreshes, use `fetching` to show inline spinners inside charts.
+      if (!loading) setFetching(true); else setLoading(true);
       const [statsResponse, chartResponse, topResponse, transResponse] = await Promise.all([
         superAdminService.getRevenueStats(timeFilter),
         superAdminService.getRevenueChartData(timeFilter),
@@ -79,10 +84,61 @@ const SuperAdminRevenue = () => {
         superAdminService.getRecentTransactions(20)
       ]);
 
-  setRevenueStats(statsResponse || revenueStats);
-  setRevenueChartData(chartResponse?.revenueTrends || []);
-  setTopPerformers(topResponse?.topTurfs || []);
-  setRecentTransactions(transResponse?.transactions || []);
+      // Debugging: print raw responses so dev console shows what backend returned
+      try {
+        console.debug('revenue stats response:', statsResponse);
+        console.debug('revenue chart response:', chartResponse);
+        console.debug('top turfs response:', topResponse);
+        console.debug('recent transactions response:', transResponse);
+      } catch (e) {}
+      // Store raw responses for in-UI debugging
+      setRawResponses({ statsResponse, chartResponse, topResponse, transResponse });
+
+      // Normalize stats (use what backend returned or keep defaults)
+      setRevenueStats(statsResponse || revenueStats);
+
+      // Normalize chart data: backend may return objects like { _id, total } or { month, revenue }
+      const rawTrends = chartResponse?.revenueTrends || chartResponse || [];
+      const normalizedTrends = (rawTrends || []).map(item => ({
+        name: item.name || item.month || item._id || item.label || '',
+        revenue: item.revenue ?? item.total ?? item.value ?? 0,
+        bookings: item.bookings ?? item.count ?? 0
+      }));
+      setRevenueChartData(normalizedTrends);
+
+      // Normalize top performers: backend returns topTurfs array with name, bookings, revenue
+      const rawTops = topResponse?.topTurfs || topResponse || [];
+      const normalizedTops = (rawTops || []).map((t, i) => ({
+        id: t._id || t.id || `${i}`,
+        name: t.name || t.turfName || 'Unknown',
+        location: t.location || t.turfLocation || '',
+        revenue: t.revenue ?? t.total ?? t.value ?? 0,
+        bookings: t.bookings ?? t.count ?? 0,
+        rating: t.rating ?? 'N/A',
+        growth: t.growth ?? 0
+      }));
+      setTopPerformers(normalizedTops);
+
+      // Normalize recent transactions: backend may return { transactions: [...] } with price, createdAt
+      const rawTx = transResponse?.transactions || transResponse || [];
+      const normalizedTx = (rawTx || []).map(tx => ({
+        id: tx._id || tx.id || tx.transactionId || '',
+        turf: tx.turf || tx.turfName || (tx.turf && tx.turf.name) || '',
+        user: tx.user?.name || tx.userName || tx.customer || '',
+        amount: tx.amount ?? tx.price ?? tx.value ?? 0,
+        status: tx.status || tx.paymentStatus || '',
+        paymentMethod: tx.paymentMethod || tx.payment?.method || 'N/A',
+        createdAt: tx.createdAt || tx.date || ''
+      }));
+      setRecentTransactions(normalizedTx);
+
+      // If after fetching there is no data at all for the selected range, inform the user.
+      const noChart = (!normalizedTrends || normalizedTrends.length === 0);
+      const noTops = (!normalizedTops || normalizedTops.length === 0);
+      const noTx = (!normalizedTx || normalizedTx.length === 0);
+      if (noChart && noTops && noTx) {
+        toast('No revenue data available for the selected time range.', { icon: 'ℹ️' });
+      }
     } catch (error) {
       console.error("Error fetching revenue data:", error);
       // Set mock data on error
@@ -98,6 +154,8 @@ const SuperAdminRevenue = () => {
       });
 
     } finally {
+      // clear fetching/loading flags
+      setFetching(false);
       setLoading(false);
     }
   };
@@ -221,12 +279,32 @@ const SuperAdminRevenue = () => {
               <RefreshCw className="w-4 h-4" />
               <span>Refresh</span>
             </button>
-            <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            <button onClick={async () => {
+              try {
+                toast.promise(superAdminService.exportRevenueReport(timeFilter), {
+                  loading: 'Generating report...',
+                  success: 'Report downloaded',
+                  error: 'Failed to generate report'
+                });
+              } catch (err) {
+                console.error('export error', err);
+              }
+            }} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
               <Download className="w-4 h-4" />
               <span>Export Report</span>
             </button>
+            <button onClick={() => setShowRaw(v => !v)} className="ml-2 px-3 py-2 border rounded bg-gray-50 text-sm">
+              {showRaw ? 'Hide' : 'Show'} raw responses
+            </button>
           </div>
         </div>
+
+        {showRaw && rawResponses && (
+          <div className="bg-gray-100 p-4 rounded mb-4">
+            <h4 className="font-medium mb-2">Raw API Responses (debug)</h4>
+            <pre className="text-xs max-h-64 overflow-auto">{JSON.stringify(rawResponses, null, 2)}</pre>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
@@ -281,31 +359,43 @@ const SuperAdminRevenue = () => {
               </div>
             </div>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={revenueChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value, name) => [
-                    name === 'revenue' ? formatCurrency(value) : value,
-                    name === 'revenue' ? 'Revenue' : 'Bookings'
-                  ]} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#3B82F6" 
-                    strokeWidth={3}
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="bookings" 
-                    stroke="#10B981" 
-                    strokeWidth={3}
-                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {fetching && (
+                <div className="h-full w-full flex items-center justify-center text-gray-500">
+                  <RefreshCw className="w-5 h-5 animate-spin mr-2 text-blue-500" /> Fetching revenue data...
+                </div>
+              )}
+              {!fetching && (!revenueChartData || revenueChartData.length === 0) && (
+                <div className="h-full w-full flex items-center justify-center text-gray-500">
+                  No revenue trend data for the selected time range.
+                </div>
+              )}
+              {!fetching && revenueChartData && revenueChartData.length > 0 && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={revenueChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip formatter={(value, name) => [
+                      name === 'revenue' ? formatCurrency(value) : value,
+                      name === 'revenue' ? 'Revenue' : 'Bookings'
+                    ]} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="#3B82F6" 
+                      strokeWidth={3}
+                      dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="bookings" 
+                      stroke="#10B981" 
+                      strokeWidth={3}
+                      dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </motion.div>
 
@@ -321,23 +411,33 @@ const SuperAdminRevenue = () => {
               <BarChart3 className="w-5 h-5 text-gray-400" />
             </div>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    dataKey="value"
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, value }) => `${name}: ${value}%`}
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value, name) => [`${value}%`, 'Share']} />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              {fetching && (
+                <div className="h-full w-full flex items-center justify-center text-gray-500">
+                  <RefreshCw className="w-5 h-5 animate-spin mr-2 text-blue-500" /> Loading categories...
+                </div>
+              )}
+              {!fetching && (!categoryData || categoryData.length === 0) && (
+                <div className="h-full w-full flex items-center justify-center text-gray-500">No category data available.</div>
+              )}
+              {!fetching && categoryData && categoryData.length > 0 && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      dataKey="value"
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, value }) => `${name}: ${value}%`}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name) => [`${value}%`, 'Share']} />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              )}
             </div>
             <div className="mt-4 space-y-2">
               {categoryData.map((category) => (
@@ -375,41 +475,47 @@ const SuperAdminRevenue = () => {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {topPerformers.map((turf, index) => (
-                  <motion.div
-                    key={turf.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
-                        #{index + 1}
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">{turf.name}</h4>
-                        <p className="text-sm text-gray-600">{turf.location}</p>
-                        <div className="flex items-center mt-1">
-                          <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                          <span className="text-sm font-medium">{turf.rating}</span>
+                {(!topPerformers || topPerformers.length === 0) ? (
+                  <div className="text-center text-gray-500 py-8">No top performers available for the selected range.</div>
+                ) : (
+                  <>
+                    {topPerformers.map((turf, index) => (
+                      <motion.div
+                        key={turf.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
+                            #{index + 1}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">{turf.name}</h4>
+                            <p className="text-sm text-gray-600">{turf.location}</p>
+                            <div className="flex items-center mt-1">
+                              <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                              <span className="text-sm font-medium">{turf.rating}</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-gray-900">
-                        {formatCurrency(turf.revenue)}
-                      </div>
-                      <div className="flex items-center text-sm text-green-600">
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        <span>+{turf.growth}%</span>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {turf.bookings} bookings
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-gray-900">
+                            {formatCurrency(turf.revenue)}
+                          </div>
+                          <div className="flex items-center text-sm text-green-600">
+                            <TrendingUp className="w-4 h-4 mr-1" />
+                            <span>+{turf.growth}%</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {turf.bookings} bookings
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
@@ -429,39 +535,45 @@ const SuperAdminRevenue = () => {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {recentTransactions.slice(0, 5).map((transaction, index) => (
-                  <motion.div
-                    key={transaction.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        {transaction.paymentMethod === 'UPI' ? (
-                          <IndianRupee className="w-4 h-4 text-blue-600" />
-                        ) : (
-                          <CreditCard className="w-4 h-4 text-blue-600" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900">{transaction.turf}</div>
-                        <div className="text-sm text-gray-600">
-                          {transaction.id}  {transaction.paymentMethod}
+                {(!recentTransactions || recentTransactions.length === 0) ? (
+                  <div className="text-center text-gray-500 py-8">No recent transactions available.</div>
+                ) : (
+                  <>
+                    {recentTransactions.slice(0, 5).map((transaction, index) => (
+                      <motion.div
+                        key={transaction.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            {transaction.paymentMethod === 'UPI' ? (
+                              <IndianRupee className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <CreditCard className="w-4 h-4 text-blue-600" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">{transaction.turf}</div>
+                            <div className="text-sm text-gray-600">
+                              {transaction.id}   {transaction.paymentMethod}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-gray-900">
-                        {formatCurrency(transaction.amount)}
-                      </div>
-                      <div className="text-sm">
-                        {getStatusBadge(transaction.status)}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                        <div className="text-right">
+                          <div className="font-medium text-gray-900">
+                            {formatCurrency(transaction.amount)}
+                          </div>
+                          <div className="text-sm">
+                            {getStatusBadge(transaction.status)}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </>
+                )}
               </div>
               <button className="w-full mt-4 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                 View All Transactions
