@@ -69,7 +69,7 @@ const SuperAdminBookingManagement = () => {
       const data = await superAdminService.getAllBookings(filters);
       // DEBUG: log the raw response for troubleshooting
       if (typeof window !== 'undefined' && window.console) {
-        console.debug('DEBUG_BOOKINGS_RESPONSE', data);
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('DEBUG_BOOKINGS_RESPONSE', data);
       }
       setBookings(data.bookings);
       setPagination({
@@ -107,11 +107,11 @@ const SuperAdminBookingManagement = () => {
   useEffect(() => {
     if (!socket) return;
     const onCreated = (data) => {
-      console.debug('socket bookingCreated', data);
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('socket bookingCreated', data);
       fetchAll();
     };
     const onUpdated = (data) => {
-      console.debug('socket bookingUpdated', data);
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('socket bookingUpdated', data);
       fetchAll();
     };
     socket.on('bookingCreated', onCreated);
@@ -263,28 +263,28 @@ const SuperAdminBookingManagement = () => {
 
   return (
     <SuperAdminPageTemplate>
-      <div className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
+  <div className="bg-white pt-7 sm:pt-20 p-4 sm:p-6 rounded-xl shadow-sm border space-y-6">
         {/* Header - force single-line layout */}
-        <div className="flex flex-row items-center justify-between gap-4 flex-nowrap">
+        <div className="flex  flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900">Booking Management</h1>
             <p className="text-sm mt-1 text-gray-600">Monitor and manage all turf bookings</p>
           </div>
-          <div className="flex items-center gap-2 whitespace-nowrap">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 h-10 text-sm rounded-lg hover:bg-green-700"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-3 py-2 h-10 text-sm rounded-lg hover:bg-green-700"
             >
-              <Download className="w-4 h-4" /> Export
+              <Download className="w-4 h-4" /> <span className=" sm:inline">Export</span>
             </button>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 h-10 text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-3 py-2 h-10 text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /> <span className="sm:inline">Refresh</span>
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <input
                 id="import-file"
                 type="file"
@@ -319,7 +319,7 @@ const SuperAdminBookingManagement = () => {
                     setImporting(false);
                   }
                 }}
-                className={`flex items-center gap-2 px-3 py-2 h-10 text-sm rounded-lg ${importing ? 'bg-gray-400' : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
+                className={`w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 h-10 text-sm rounded-lg ${importing ? 'bg-gray-400' : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
                 disabled={importing}
               >
                 <span>{importing ? 'Importing...' : 'Import CSV'}</span>
@@ -330,7 +330,7 @@ const SuperAdminBookingManagement = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
             ["Total", statTotal, <Calendar />, "text-gray-900"],
             ["Confirmed", statConfirmed, <CheckCircle />, "text-blue-600"],
@@ -382,7 +382,55 @@ const SuperAdminBookingManagement = () => {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+        {/* Mobile friendly list view (cards) */}
+        <div className="sm:hidden">
+          {loading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="bg-white p-4 rounded-lg shadow-sm mb-3">
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded animate-pulse w-1/2"></div>
+              </div>
+            ))
+          ) : bookings.length ? (
+            bookings.map((b) => (
+              <div key={b._id} className="bg-white p-4 rounded-lg shadow-sm mb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm font-medium">{b._id}</div>
+                    <div className="text-xs text-gray-500">{b.user?.name} • {b.user?.phone}</div>
+                    <div className="text-xs text-gray-500 mt-1">{b.turf?.name}</div>
+                  </div>
+                  <div className="text-right text-sm">
+                    <div className="font-medium">₹{b.amount}</div>
+                    <div className="text-xs text-gray-500">{new Date(b.bookingDate).toLocaleDateString()}</div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="text-xs">
+                    <div className="text-gray-500">{b.timeSlot}</div>
+                    <div className="mt-1">
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor[b.status]}`}>{b.status}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button onClick={() => { setSelectedBooking(b); setShowBookingModal(true); }} className="text-blue-600 hover:text-blue-900"><Eye className="w-4 h-4"/></button>
+                    {b.status === 'pending' && (
+                      <>
+                        <button onClick={() => handleBookingStatusUpdate(b._id, 'confirmed')} className="text-green-600 hover:text-green-900"><CheckCircle className="w-4 h-4"/></button>
+                        <button onClick={() => handleBookingStatusUpdate(b._id, 'cancelled')} className="text-red-600 hover:text-red-900"><XCircle className="w-4 h-4"/></button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="bg-white p-6 rounded-lg text-center text-gray-500">No bookings found</div>
+          )}
+        </div>
+
+        {/* Desktop / tablet table view */}
+        <div className="hidden sm:block bg-white rounded-xl shadow-sm border overflow-x-auto">
           <table className="w-full min-w-[900px]">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b">
               <tr>
@@ -415,7 +463,7 @@ const SuperAdminBookingManagement = () => {
                       <td className="px-6 py-4 text-sm font-medium">{b._id}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                          <div className="w-8 h-8 bg-linear-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
                             {initials(b.user.name)}
                           </div>
                           <div className="ml-3 text-sm">
@@ -613,13 +661,13 @@ const SuperAdminBookingManagement = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+              className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center p-4 z-50"
             >
               <motion.div
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.9 }}
-                className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+                className="bg-white rounded-t-xl sm:rounded-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-2 sm:mx-0"
               >
                 <div className="flex justify-between mb-6">
                   <h2 className="text-xl font-bold">Booking Details</h2>

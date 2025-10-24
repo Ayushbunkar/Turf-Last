@@ -356,9 +356,95 @@ export async function getDatabaseStats(req, res) {
 export async function getDatabaseBackups(req, res) {
   try {
     // TODO: Integrate with real backup system if available
-    res.json({ backups: [] });
+    // Use an in-memory simulated backups list for development/testing
+    if (!global.__simulatedBackups) global.__simulatedBackups = [];
+    res.json({ backups: global.__simulatedBackups });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch database backups', details: err.message });
+  }
+}
+
+// Create a simulated database backup (development helper)
+export async function createDatabaseBackup(req, res) {
+  try {
+    const { type = 'full', db = 'main' } = req.body || {};
+    if (!global.__simulatedBackups) global.__simulatedBackups = [];
+    const id = String(Date.now());
+    const backup = {
+      id,
+      name: `${db}_${type}_${new Date().toISOString().replace(/[:.]/g, '-')}`,
+      type,
+      db,
+      size: `${(Math.random() * 50 + 10).toFixed(2)} MB`,
+      date: new Date().toISOString(),
+      status: 'creating'
+    };
+    // push immediately so frontend can see it
+    global.__simulatedBackups.unshift(backup);
+
+    // Simulate async work then mark completed
+    setTimeout(() => {
+      const idx = global.__simulatedBackups.findIndex(b => b.id === id);
+      if (idx !== -1) {
+        global.__simulatedBackups[idx].status = 'completed';
+        global.__simulatedBackups[idx].date = new Date().toISOString();
+      }
+    }, 800);
+
+    res.json({ backup });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create backup', details: err.message });
+  }
+}
+
+// Restore a simulated backup
+export async function restoreDatabaseBackup(req, res) {
+  try {
+    const { id } = req.params;
+    if (!global.__simulatedBackups) global.__simulatedBackups = [];
+    const idx = global.__simulatedBackups.findIndex(b => b.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Backup not found' });
+    // mark as restoring
+    global.__simulatedBackups[idx].status = 'restoring';
+    // simulate restore delay
+    setTimeout(() => {
+      if (global.__simulatedBackups[idx]) global.__simulatedBackups[idx].status = 'restored';
+    }, 1500);
+    res.json({ success: true, message: 'Restore started' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to restore backup', details: err.message });
+  }
+}
+
+// Download a simulated backup file
+export async function downloadBackup(req, res) {
+  try {
+    const { id } = req.params;
+    if (!global.__simulatedBackups) global.__simulatedBackups = [];
+    const backup = global.__simulatedBackups.find(b => b.id === id);
+    if (!backup) return res.status(404).json({ error: 'Backup not found' });
+    const content = `Simulated backup file for ${backup.name}\nGenerated at: ${backup.date}\nSize: ${backup.size}\n`;
+    const filename = `${backup.name}.txt`;
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(content);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to download backup', details: err.message });
+  }
+}
+
+// Delete a simulated backup
+export async function deleteBackup(req, res) {
+  try {
+    const { id } = req.params;
+    if (!global.__simulatedBackups) global.__simulatedBackups = [];
+    const before = global.__simulatedBackups.length;
+    global.__simulatedBackups = global.__simulatedBackups.filter(b => b.id !== id);
+    const after = global.__simulatedBackups.length;
+    if (before === after) return res.status(404).json({ error: 'Backup not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete backup', details: err.message });
   }
 }
 
@@ -384,72 +470,123 @@ export async function getDatabasePerformance(req, res) {
 // Fetch revenue statistics for superadmin dashboard
 export async function getRevenueStats(req, res) {
   try {
-    console.debug('[DEBUG] getRevenueStats called', { user: req.user ? req.user._id : null, query: req.query });
     // Platform fee percent (set as needed)
     const PLATFORM_FEE_PERCENT = 10; // 10% platform fee
 
-    // Dates
+    // Optional timeRange query param: '7d', '30d', '90d', '1y'
+    const { timeRange } = req.query || {};
     const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonth = new Date(firstDayOfMonth);
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    let rangeStart = null;
+    let prevStart = null;
+    if (timeRange) {
+      let days = 0;
+      if (timeRange === '7d') days = 7;
+      else if (timeRange === '30d') days = 30;
+      else if (timeRange === '90d') days = 90;
+      else if (timeRange === '1y') days = 365;
+      if (days > 0) {
+        rangeStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        prevStart = new Date(rangeStart.getTime() - days * 24 * 60 * 60 * 1000);
+      }
+    }
 
-    // Total revenue (all time)
-    const totalRevenueAgg = await Booking.aggregate([
-      { $group: { _id: null, total: { $sum: "$price" } } }
-    ]);
-    const totalRevenue = totalRevenueAgg[0]?.total || 0;
+    // Helper to build match stage for createdAt
+    const makeMatch = (start, end) => ({ createdAt: { $gte: start, $lte: end } });
 
-    // Previous total revenue (previous month)
-    const totalRevenuePrevAgg = await Booking.aggregate([
-      { $match: { createdAt: { $gte: lastMonth, $lt: firstDayOfMonth } } },
-      { $group: { _id: null, total: { $sum: "$price" } } }
-    ]);
-    const totalRevenuePrev = totalRevenuePrevAgg[0]?.total || 0;
+    // Totals
+    let totalRevenue = 0;
+    let totalRevenuePrev = 0;
+    let monthlyRevenue = 0;
+    let monthlyRevenuePrev = 0;
 
-    // Monthly revenue (this month)
-    const monthlyRevenueAgg = await Booking.aggregate([
-      { $match: { createdAt: { $gte: firstDayOfMonth } } },
-      { $group: { _id: null, total: { $sum: "$price" } } }
-    ]);
-    const monthlyRevenue = monthlyRevenueAgg[0]?.total || 0;
+    if (rangeStart) {
+      const curAgg = await Booking.aggregate([
+        { $match: makeMatch(rangeStart, now) },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      totalRevenue = curAgg[0]?.total || 0;
+      const prevAgg = await Booking.aggregate([
+        { $match: makeMatch(prevStart, new Date(rangeStart.getTime() - 1)) },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      totalRevenuePrev = prevAgg[0]?.total || 0;
+      monthlyRevenue = totalRevenue;
+      monthlyRevenuePrev = totalRevenuePrev;
+    } else {
+      // Dates for monthly comparisons when no range specified
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastMonth = new Date(firstDayOfMonth);
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
 
-    // Previous monthly revenue (last month)
-    const monthlyRevenuePrevAgg = await Booking.aggregate([
-      { $match: { createdAt: { $gte: lastMonth, $lt: firstDayOfMonth } } },
-      { $group: { _id: null, total: { $sum: "$price" } } }
-    ]);
-    const monthlyRevenuePrev = monthlyRevenuePrevAgg[0]?.total || 0;
+      const totalRevenueAgg = await Booking.aggregate([
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      totalRevenue = totalRevenueAgg[0]?.total || 0;
 
-    // Platform fee (all time)
+      const totalRevenuePrevAgg = await Booking.aggregate([
+        { $match: { createdAt: { $gte: lastMonth, $lt: firstDayOfMonth } } },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      totalRevenuePrev = totalRevenuePrevAgg[0]?.total || 0;
+
+      const monthlyRevenueAgg = await Booking.aggregate([
+        { $match: { createdAt: { $gte: firstDayOfMonth } } },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      monthlyRevenue = monthlyRevenueAgg[0]?.total || 0;
+
+      const monthlyRevenuePrevAgg = await Booking.aggregate([
+        { $match: { createdAt: { $gte: lastMonth, $lt: firstDayOfMonth } } },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      monthlyRevenuePrev = monthlyRevenuePrevAgg[0]?.total || 0;
+    }
+
+    // Platform fee
     const platformFee = Math.round(totalRevenue * PLATFORM_FEE_PERCENT / 100);
-    // Platform fee previous (previous month)
     const platformFeePrev = Math.round(totalRevenuePrev * PLATFORM_FEE_PERCENT / 100);
 
-    // Pending payments (all time, status != 'paid')
-    const pendingPaymentsAgg = await Booking.aggregate([
-      { $match: { status: { $ne: 'paid' } } },
-      { $group: { _id: null, total: { $sum: "$price" } } }
-    ]);
-    const pendingPayments = pendingPaymentsAgg[0]?.total || 0;
+    // Pending payments
+    let pendingPayments = 0;
+    let pendingPaymentsPrev = 0;
+    if (rangeStart) {
+      const pAgg = await Booking.aggregate([
+        { $match: { $and: [ { status: { $ne: 'paid' } }, makeMatch(rangeStart, now) ] } },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      pendingPayments = pAgg[0]?.total || 0;
+      const pPrevAgg = await Booking.aggregate([
+        { $match: { $and: [ { status: { $ne: 'paid' } }, makeMatch(prevStart, new Date(rangeStart.getTime() - 1)) ] } },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      pendingPaymentsPrev = pPrevAgg[0]?.total || 0;
+    } else {
+      const pendingPaymentsAgg = await Booking.aggregate([
+        { $match: { status: { $ne: 'paid' } } },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      pendingPayments = pendingPaymentsAgg[0]?.total || 0;
+      const pendingPaymentsPrevAgg = await Booking.aggregate([
+        { $match: { status: { $ne: 'paid' }, createdAt: { $gte: lastMonth, $lt: firstDayOfMonth } } },
+        { $group: { _id: null, total: { $sum: "$price" } } }
+      ]);
+      pendingPaymentsPrev = pendingPaymentsPrevAgg[0]?.total || 0;
+    }
 
-    // Pending payments previous (previous month, status != 'paid')
-    const pendingPaymentsPrevAgg = await Booking.aggregate([
-      { $match: { status: { $ne: 'paid' }, createdAt: { $gte: lastMonth, $lt: firstDayOfMonth } } },
-      { $group: { _id: null, total: { $sum: "$price" } } }
-    ]);
-    const pendingPaymentsPrev = pendingPaymentsPrevAgg[0]?.total || 0;
-
-    // Revenue trends (last 12 months)
-    const revenueTrends = await Booking.aggregate([
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-          total: { $sum: "$price" }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    // Revenue trends
+    let revenueTrends = [];
+    if (rangeStart) {
+      revenueTrends = await Booking.aggregate([
+        { $match: makeMatch(rangeStart, now) },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, total: { $sum: "$price" } } },
+        { $sort: { _id: 1 } }
+      ]);
+    } else {
+      revenueTrends = await Booking.aggregate([
+        { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, total: { $sum: "$price" } } },
+        { $sort: { _id: 1 } }
+      ]);
+    }
 
     res.json({
       totalRevenue,
@@ -470,17 +607,31 @@ export async function getRevenueStats(req, res) {
 // Revenue chart data (monthly trends for chart)
 export async function getRevenueChartData(req, res) {
   try {
-    console.debug('[DEBUG] getRevenueChartData called', { user: req.user ? req.user._id : null, query: req.query });
-    // Last 12 months revenue trends
-    const revenueTrends = await Booking.aggregate([
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-          total: { $sum: "$price" }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    // debug logging removed to reduce noisy server output
+    const { timeRange } = req.query || {};
+    const now = new Date();
+    let rangeStart = null;
+    if (timeRange) {
+      let days = 0;
+      if (timeRange === '7d') days = 7;
+      else if (timeRange === '30d') days = 30;
+      else if (timeRange === '90d') days = 90;
+      else if (timeRange === '1y') days = 365;
+      if (days > 0) rangeStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    }
+    let revenueTrends = [];
+    if (rangeStart) {
+      revenueTrends = await Booking.aggregate([
+        { $match: { createdAt: { $gte: rangeStart, $lte: now } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, total: { $sum: "$price" } } },
+        { $sort: { _id: 1 } }
+      ]);
+    } else {
+      revenueTrends = await Booking.aggregate([
+        { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, total: { $sum: "$price" } } },
+        { $sort: { _id: 1 } }
+      ]);
+    }
     res.json({ revenueTrends });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch revenue chart data', details: err.message });
@@ -490,8 +641,21 @@ export async function getRevenueChartData(req, res) {
 // Top performing turfs by revenue
 export async function getTopPerformingTurfs(req, res) {
   try {
-    console.debug('[DEBUG] getTopPerformingTurfs called', { user: req.user ? req.user._id : null, query: req.query });
+    // debug logging removed to reduce noisy server output
+    const { timeRange } = req.query || {};
+    const now = new Date();
+    let rangeStart = null;
+    if (timeRange) {
+      let days = 0;
+      if (timeRange === '7d') days = 7;
+      else if (timeRange === '30d') days = 30;
+      else if (timeRange === '90d') days = 90;
+      else if (timeRange === '1y') days = 365;
+      if (days > 0) rangeStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    }
+    const matchStage = rangeStart ? { $match: { createdAt: { $gte: rangeStart, $lte: now } } } : { $match: {} };
     const topTurfs = await Booking.aggregate([
+      matchStage,
       { $group: {
           _id: "$turf",
           bookings: { $sum: 1 },
@@ -524,7 +688,7 @@ export async function getTopPerformingTurfs(req, res) {
 // Recent transactions (latest bookings)
 export async function getRecentTransactions(req, res) {
   try {
-    console.debug('[DEBUG] getRecentTransactions called', { user: req.user ? req.user._id : null, query: req.query });
+    // debug logging removed to reduce noisy server output
     const limit = parseInt(req.query.limit) || 20;
     const recentBookings = await Booking.find({})
       .sort({ createdAt: -1 })
@@ -1073,8 +1237,7 @@ export async function updateProfile(req, res) {
     const userId = req.user?._id;
     if (!userId) return res.status(404).json({ error: 'User not found' });
     const allowed = ['name', 'email', 'phone', 'avatar'];
-    const updatesRaw = req.body || {};
-    console.log('SuperAdmin updateProfile request for', userId.toString(), 'payload:', updatesRaw);
+  const updatesRaw = req.body || {};
 
     // Load current user to merge and validate against existing values
     const currentUser = await User.findById(userId);

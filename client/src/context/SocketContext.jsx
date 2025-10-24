@@ -24,7 +24,7 @@ export const SocketProvider = ({ children, userId }) => {
       auth: token ? { token } : undefined,
       withCredentials: true,
     });
-    console.debug('Socket: attempting connection to', API_BASE);
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('Socket: attempting connection to', API_BASE);
     setSocket(newSocket);
 
     // Determine current user from localStorage if not passed
@@ -35,19 +35,21 @@ export const SocketProvider = ({ children, userId }) => {
     } catch (e) {
       currentUser = null;
     }
+    // derive role from stored user if available
+    const role = currentUser?.role || null;
 
     // Join a room for this user (personal room)
     const uid = userId || currentUser?._id;
     newSocket.on('connect', () => {
-      console.debug('Socket connected:', newSocket.id);
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('Socket connected:', newSocket.id);
       // Join personal room after connect
       if (uid) {
         newSocket.emit('joinRoom', uid);
-        console.debug('Socket: join personal room', uid);
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('Socket: join personal room', uid);
       }
       if (role === 'superadmin') {
         newSocket.emit('joinRoom', 'superadmin');
-        console.debug('Socket: join superadmin room');
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('Socket: join superadmin room');
       }
     });
 
@@ -56,7 +58,7 @@ export const SocketProvider = ({ children, userId }) => {
     });
 
     newSocket.on('reconnect_attempt', (attempt) => {
-      console.debug('Socket reconnect attempt', attempt);
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('Socket reconnect attempt', attempt);
     });
 
     // role handling moved into connect handler above

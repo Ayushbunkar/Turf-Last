@@ -82,7 +82,7 @@ const SuperAdminAnalytics = () => {
 
   return (
     <SuperAdminPageTemplate title="Analytics Dashboard" subtitle="Comprehensive platform insights and metrics">
-      <div className="bg-white  rounded-xl shadow-md p-6 space-y-8">
+      <div className="bg-white pt-20 sm:pt-6 p-4 sm:p-6 rounded-xl shadow-md space-y-8">
 
         {/* Top Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -90,17 +90,17 @@ const SuperAdminAnalytics = () => {
             <h1 className="text-3xl font-extrabold text-gray-900">Analytics Dashboard</h1>
             <p className="text-gray-600 mt-1">Comprehensive platform insights and metrics</p>
           </div>
-          <div className="flex items-center gap-3">
-            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="7d">Last 7 Days</option>
               <option value="30d">Last 30 Days</option>
               <option value="90d">Last 90 Days</option>
               <option value="1y">Last Year</option>
             </select>
-            <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
+            <button onClick={handleRefresh} disabled={refreshing} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
             </button>
-            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button onClick={handleExport} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
               <Download className="w-4 h-4" /> Export
             </button>
           </div>
@@ -193,22 +193,24 @@ const SuperAdminAnalytics = () => {
                 <h3 className="text-lg font-semibold text-gray-900">Booking Trends</h3>
                 <BarChart3 className="w-5 h-5 text-gray-400" />
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={analyticsData.bookingTrends || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="bookings" orientation="left" tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="revenue" orientation="right" tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(value, name) => [
-                      name === 'bookings' ? value : formatCurrency(value),
-                      name === 'bookings' ? 'Bookings' : 'Revenue'
-                    ]}
-                  />
-                  <Bar yAxisId="bookings" dataKey="bookings" fill="#3B82F6" radius={[2, 2, 0, 0]} />
-                  <Line yAxisId="revenue" type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={3} />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <div className="w-full overflow-auto">
+                <ResponsiveContainer width="100%" height={260}>
+                  <ComposedChart data={analyticsData.bookingTrends || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis yAxisId="bookings" orientation="left" tick={{ fontSize: 12 }} />
+                    <YAxis yAxisId="revenue" orientation="right" tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value, name) => [
+                        name === 'bookings' ? value : formatCurrency(value),
+                        name === 'bookings' ? 'Bookings' : 'Revenue'
+                      ]}
+                    />
+                    <Bar yAxisId="bookings" dataKey="bookings" fill="#3B82F6" radius={[2, 2, 0, 0]} />
+                    <Line yAxisId="revenue" type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={3} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
 
             {/* Revenue Growth */}
@@ -222,27 +224,29 @@ const SuperAdminAnalytics = () => {
                 <h3 className="text-lg font-semibold text-gray-900">Revenue Growth</h3>
                 <TrendingUp className="w-5 h-5 text-gray-400" />
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={analyticsData.revenueTrends || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#10B981"
-                    fill="url(#revenueGradient)"
-                    strokeWidth={2}
-                  />
-                  <defs>
-                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="w-full overflow-auto">
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={analyticsData.revenueTrends || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(value) => [formatCurrency(value), 'Revenue']} />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#10B981"
+                      fill="url(#revenueGradient)"
+                      strokeWidth={2}
+                    />
+                    <defs>
+                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
 
             {/* User Registrations */}
@@ -256,22 +260,24 @@ const SuperAdminAnalytics = () => {
                 <h3 className="text-lg font-semibold text-gray-900">User Registrations</h3>
                 <Users className="w-5 h-5 text-gray-400" />
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={analyticsData.userRegistrations || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value) => [value, 'New Users']} />
-                  <Line
-                    type="monotone"
-                    dataKey="users"
-                    stroke="#8B5CF6"
-                    strokeWidth={3}
-                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="w-full overflow-auto">
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={analyticsData.userRegistrations || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(value) => [value, 'New Users']} />
+                    <Line
+                      type="monotone"
+                      dataKey="users"
+                      stroke="#8B5CF6"
+                      strokeWidth={3}
+                      dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
 
             {/* Payment Methods Distribution */}
@@ -285,25 +291,27 @@ const SuperAdminAnalytics = () => {
                 <h3 className="text-lg font-semibold text-gray-900">Payment Methods</h3>
                 <PieChartIcon className="w-5 h-5 text-gray-400" />
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={analyticsData.paymentMethods || []}
-                    dataKey="count"
-                    nameKey="method"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    innerRadius={40}
-                    paddingAngle={2}
-                  >
-                    {(analyticsData.paymentMethods || []).map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value, name) => [`${value} (${(analyticsData.paymentMethods || []).find(p => p.method === name)?.percentage || 0}%)`, 'Transactions']} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="w-full overflow-auto">
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie
+                      data={analyticsData.paymentMethods || []}
+                      dataKey="count"
+                      nameKey="method"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      innerRadius={40}
+                      paddingAngle={2}
+                    >
+                      {(analyticsData.paymentMethods || []).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name) => [`${value} (${(analyticsData.paymentMethods || []).find(p => p.method === name)?.percentage || 0}%)`, 'Transactions']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
           </div>
 
@@ -383,15 +391,17 @@ const SuperAdminAnalytics = () => {
               className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
             >
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Popular Sports</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={analyticsData.popularSports || []} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis type="category" dataKey="sport" tick={{ fontSize: 12 }} width={80} />
-                  <Tooltip formatter={(value) => [value, 'Bookings']} />
-                  <Bar dataKey="bookings" fill="#F59E0B" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="w-full overflow-auto">
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={analyticsData.popularSports || []} layout="horizontal">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" tick={{ fontSize: 12 }} />
+                    <YAxis type="category" dataKey="sport" tick={{ fontSize: 12 }} width={80} />
+                    <Tooltip formatter={(value) => [value, 'Bookings']} />
+                    <Bar dataKey="bookings" fill="#F59E0B" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
 
             {/* Peak Hours */}
@@ -402,27 +412,29 @@ const SuperAdminAnalytics = () => {
               className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
             >
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Peak Hours</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={analyticsData.peakHours || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value) => [value, 'Bookings']} />
-                  <Area
-                    type="monotone"
-                    dataKey="bookings"
-                    stroke="#EC4899"
-                    fill="url(#peakGradient)"
-                    strokeWidth={2}
-                  />
-                  <defs>
-                    <linearGradient id="peakGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EC4899" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#EC4899" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="w-full overflow-auto">
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={analyticsData.peakHours || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(value) => [value, 'Bookings']} />
+                    <Area
+                      type="monotone"
+                      dataKey="bookings"
+                      stroke="#EC4899"
+                      fill="url(#peakGradient)"
+                      strokeWidth={2}
+                    />
+                    <defs>
+                      <linearGradient id="peakGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#EC4899" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#EC4899" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
           </motion.div>
         </div>
 

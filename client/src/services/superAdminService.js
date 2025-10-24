@@ -118,7 +118,9 @@ const superAdminService = {
   },
   // Fetch revenue statistics for superadmin dashboard
   async getRevenueStats(params = {}) {
-    const res = await api.get('/superadmin/revenue/statistics', typeof params === 'object' ? { params } : {});
+    // Accept either an object of params or a short string like '30d' which we'll map to timeRange
+    const buildParams = (p) => (typeof p === 'string' ? { timeRange: p } : (typeof p === 'object' ? p : {}));
+    const res = await api.get('/superadmin/revenue/statistics', { params: buildParams(params) });
     return res.data;
   },
 
@@ -130,6 +132,62 @@ const superAdminService = {
       return res.data.backups || [];
     } catch (err) {
       return [];
+    }
+  },
+
+  // Create a new database backup (manual trigger)
+  async createDatabaseBackup(payload = {}) {
+    try {
+      const res = await api.post('/superadmin/database/backups', payload);
+      return res.data;
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // Restore a backup by id
+  async restoreDatabaseBackup(id) {
+    try {
+      const res = await api.post(`/superadmin/database/backups/${id}/restore`);
+      return res.data;
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // Download a backup file by id
+  async downloadBackup(id) {
+    try {
+      const res = await api.get(`/superadmin/database/backups/${id}/download`, { responseType: 'blob' });
+      if (typeof window !== 'undefined' && res && res.data) {
+        const contentDisposition = res.headers && res.headers['content-disposition'];
+        let filename = `backup_${id}.bin`;
+        if (contentDisposition) {
+          const match = /filename="?([^\"]+)"?/.exec(contentDisposition);
+          if (match) filename = match[1];
+        }
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.setAttribute('download', filename);
+        document.body.appendChild(a);
+        a.click();
+        a.parentNode.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+      return true;
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // Delete a backup by id
+  async deleteBackup(id) {
+    try {
+      const res = await api.delete(`/superadmin/database/backups/${id}`);
+      return res.data;
+    } catch (err) {
+      throw err;
     }
   },
 
@@ -157,18 +215,21 @@ const superAdminService = {
   async getRevenueChartData(params = {}) {
     try {
       // Try to fetch from dedicated chart endpoint
-      const res = await api.get('/superadmin/revenue/chart', typeof params === 'object' ? { params } : {});
+      const buildParams = (p) => (typeof p === 'string' ? { timeRange: p } : (typeof p === 'object' ? p : {}));
+      const res = await api.get('/superadmin/revenue/chart', { params: buildParams(params) });
       return res.data;
     } catch (err) {
       // Fallback: use statistics endpoint and extract chart data
-      const statsRes = await api.get('/superadmin/revenue/statistics', typeof params === 'object' ? { params } : {});
+      const buildParams = (p) => (typeof p === 'string' ? { timeRange: p } : (typeof p === 'object' ? p : {}));
+      const statsRes = await api.get('/superadmin/revenue/statistics', { params: buildParams(params) });
       return statsRes.data?.revenueTrends || [];
     }
   },
 
   // Fetch top performing turfs for superadmin dashboard
   async getTopPerformingTurfs(params = {}) {
-    const res = await api.get('/superadmin/revenue/top-turfs', typeof params === 'object' ? { params } : {});
+    const buildParams = (p) => (typeof p === 'string' ? { timeRange: p } : (typeof p === 'object' ? p : {}));
+    const res = await api.get('/superadmin/revenue/top-turfs', { params: buildParams(params) });
     return res.data;
   },
 

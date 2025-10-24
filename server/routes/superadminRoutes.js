@@ -38,6 +38,46 @@ router.get('/database/stats', verifySuperAdmin, getDatabaseStats);
 // Database backups endpoint for superadmin dashboard
 router.get('/database/backups', verifySuperAdmin, getDatabaseBackups);
 
+// Create a new backup (manual trigger)
+router.post('/database/backups', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { createDatabaseBackup } = await import('../controllers/superadminController.js');
+		return createDatabaseBackup(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+
+// Download a backup file
+router.get('/database/backups/:id/download', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { downloadBackup } = await import('../controllers/superadminController.js');
+		return downloadBackup(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+
+// Restore a backup
+router.post('/database/backups/:id/restore', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { restoreDatabaseBackup } = await import('../controllers/superadminController.js');
+		return restoreDatabaseBackup(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+
+// Delete a backup
+router.delete('/database/backups/:id', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { deleteBackup } = await import('../controllers/superadminController.js');
+		return deleteBackup(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+
 // Database queries endpoint for superadmin dashboard
 router.get('/database/queries', verifySuperAdmin, getDatabaseQueries);
 
