@@ -4,6 +4,7 @@ import {
   Bell, Check, Trash2, Calendar, CreditCard, AlertTriangle, Info
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext.jsx";
+import { useSocket } from "../../../context/SocketContext.jsx";
 import Sidebar from "../../../components/Sidebar/UserSidebar";
 import api from "../../../config/Api.jsx";
 import toast from "react-hot-toast";
@@ -38,8 +39,16 @@ export default function UserNotifications() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/notifications/user");
-        setNotifications(res.data || []);
+        const res = await api.get("/api/user/notifications");
+        // Backwards-compatible: some endpoints return an object { notifications: [] }
+        // while others return the array directly. Accept both shapes.
+        const payload = res && res.data ? res.data : null;
+        const list = Array.isArray(payload)
+          ? payload
+          : payload && Array.isArray(payload.notifications)
+          ? payload.notifications
+          : [];
+        setNotifications(list);
       } catch {
         toast.error("Failed to load notifications");
       } finally {
@@ -47,6 +56,37 @@ export default function UserNotifications() {
       }
     })();
   }, []);
+
+  // Merge socket notifications into local state
+  const { socket, notifications: socketNotifications } = useSocket();
+  useEffect(() => {
+    if (!socket) return;
+    const handleSingle = (n) => {
+      setNotifications((prev) => {
+        if (!n || !n._id) return prev;
+        if (prev.find((x) => x._id === n._id)) return prev;
+        return [n, ...prev];
+      });
+    };
+    // also listen directly for notification events (defensive)
+    socket.on('notification', handleSingle);
+    socket.on('receiveNotification', handleSingle);
+    return () => {
+      socket.off('notification', handleSingle);
+      socket.off('receiveNotification', handleSingle);
+    };
+  }, [socket]);
+
+  // If the SocketContext exposes a notifications array, merge any that aren't present
+  useEffect(() => {
+    if (!Array.isArray(socketNotifications) || socketNotifications.length === 0) return;
+    setNotifications((prev) => {
+      const existing = new Set(prev.map((p) => p._id));
+      const toAdd = socketNotifications.filter((s) => s && s._id && !existing.has(s._id));
+      if (!toAdd.length) return prev;
+      return [...toAdd, ...prev];
+    });
+  }, [socketNotifications]);
 
   const filtered = notifications.filter((n) =>
     filter === "all"
@@ -60,23 +100,23 @@ export default function UserNotifications() {
     setNotifications((n) => n.map((x) => (x._id === id ? { ...x, ...updates } : x)));
 
   const deleteNotif = async (id) => {
-    await api.delete(`/notifications/${id}`).catch(() => {});
+  await api.delete(`/api/user/notifications/${id}`).catch(() => {});
     setNotifications((n) => n.filter((x) => x._id !== id));
   };
 
   const markAsRead = async (id) => {
-    await api.patch(`/notifications/${id}/read`).catch(() => {});
+  await api.patch(`/api/user/notifications/${id}/read`).catch(() => {});
     updateNotif(id, { read: true });
   };
 
   const markAllAsRead = async () => {
-    await api.patch("/notifications/mark-all-read").catch(() => {});
+  await api.patch("/api/user/notifications/mark-all-read").catch(() => {});
     setNotifications((n) => n.map((x) => ({ ...x, read: true })));
     toast.success("All marked as read");
   };
 
   const deleteSelected = async () => {
-    await api.delete("/notifications/bulk-delete", { data: { notificationIds: selected } }).catch(() => {});
+  await api.delete("/api/user/notifications/bulk-delete", { data: { notificationIds: selected } }).catch(() => {});
     setNotifications((n) => n.filter((x) => !selected.includes(x._id)));
     setSelected([]);
   };

@@ -148,7 +148,7 @@ export default function UserSettings() {
     >
       <div className="flex">
         <Sidebar user={user} onToggleDark={() => setDarkMode(!darkMode)} darkMode={darkMode} />
-        <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-48 pb-8 min-h-screen">
+        <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8  pb-8 min-h-screen">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>

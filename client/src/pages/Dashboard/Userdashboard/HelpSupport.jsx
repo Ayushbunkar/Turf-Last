@@ -176,7 +176,7 @@ const UserHelp = () => {
     >
       <div className="flex">
         <Sidebar user={user} onToggleDark={() => setDarkMode(!darkMode)} darkMode={darkMode} />
-        <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-48 pb-8 min-h-screen">
+        <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pb-8 min-h-screen">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             {/* Header + Tabs */}
             <div className="mb-6 flex items-center justify-between">
@@ -187,12 +187,12 @@ const UserHelp = () => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setActiveTab("faq")}
-                  className={`px-3 py-2 rounded ${activeTab === "faq" ? "bg-green-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-700"}`}>
+                  className={`px-3 py-2 rounded ${activeTab === "faq" ? "bg-green-600 text-white" : "bg-gray-100 text-white dark:bg-gray-700 text-gray-700"}`}>
                   FAQs
                 </button>
                 <button
                   onClick={() => setActiveTab("contact")}
-                  className={`px-3 py-2 rounded ${activeTab === "contact" ? "bg-green-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-700"}`}>
+                  className={`px-3 py-2 rounded ${activeTab === "contact" ? "bg-green-600 text-white" : "bg-gray-100 text-white dark:bg-gray-700 text-gray-700"}`}>
                   Contact / Ticket
                 </button>
               </div>

@@ -55,7 +55,7 @@ function EditProfileModal({ open, onClose, user, token, onProfileUpdate }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 pt-20 flex items-center justify-center bg-black bg-opacity-40">
+    <div className="fixed inset-0 z-50  flex items-center justify-center bg-black bg-opacity-40">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
         <h2 className="text-lg font-semibold mb-4">Edit Profile</h2>
         {["Name", "Email"].map((field, idx) => (
@@ -119,9 +119,10 @@ export default function UserDashboard() {
       <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} user={user} token={token} onProfileUpdate={handleProfileUpdate} />
       <div className={`${darkMode ? "dark" : ""} min-h-screen  bg-gradient-to-br from-green-50 via-green-100 to-green-200 dark:from-gray-900 dark:to-gray-800`}>
   {isMobileSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setIsMobileSidebarOpen(false)} />}
+  {/* mobile menu button is rendered by Sidebar component */}
         <div className="flex">
           <Sidebar user={user} onToggleDark={() => setDarkMode(!darkMode)} darkMode={darkMode} isMobileOpen={isMobileSidebarOpen} onMobileToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
-          <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-48 space-y-8 pb-8 min-h-screen">
+          <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 space-y-8 pb-8 min-h-screen">
             
             {/* Profile Card */}
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-md mx-auto mb-8">

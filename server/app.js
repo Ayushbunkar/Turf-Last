@@ -12,6 +12,14 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import superadminRoutes from './routes/superadminRoutes.js';
 import turfadminRoutes from './routes/turfadminRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import { protect } from './middleware/authMiddleware.js';
+import {
+  getUserNotifications,
+  deleteUserNotification,
+  markUserNotificationRead,
+  markAllUserNotificationsRead,
+  bulkDeleteUserNotifications,
+} from './controllers/userController.js';
 
 const app = express();
 
@@ -46,6 +54,13 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/superadmin', superadminRoutes);
 app.use('/api/turfadmin', turfadminRoutes);
 app.use('/api/user', userRoutes);
+// Compatibility routes: frontend historically called /notifications/... without /api prefix
+// Map those legacy paths to the same handlers so existing client requests don't 404.
+app.get('/notifications/user', protect, getUserNotifications);
+app.delete('/notifications/:id', protect, deleteUserNotification);
+app.patch('/notifications/:id/read', protect, markUserNotificationRead);
+app.patch('/notifications/mark-all-read', protect, markAllUserNotificationsRead);
+app.delete('/notifications/bulk-delete', protect, bulkDeleteUserNotifications);
 // Direct superadmin endpoint for legacy/frontend compatibility
 app.use('/superadmin', superadminRoutes);
 

@@ -69,6 +69,12 @@ export const SocketProvider = ({ children, userId }) => {
       setNotifications((prev) => [...prev, data]);
     });
 
+    // Also handle server-side 'notification' events (used by backend to emit to user_<id> rooms)
+    newSocket.on('notification', (data) => {
+      if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) console.debug('Socket notification event:', data);
+      setNotifications((prev) => [data, ...prev]);
+    });
+
     return () => {
       newSocket.disconnect();
     };

@@ -6,8 +6,10 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     // Optional contact fields
-    phone: { type: String },
-    address: { type: String },
+  phone: { type: String },
+  address: { type: String },
+  // Personal info
+  dateOfBirth: { type: Date },
   // Administrative/status fields
   // Note: include 'inactive' as an accepted legacy/status value used by frontend
   status: { type: String, enum: ['active', 'pending', 'blocked', 'suspended', 'inactive'], default: 'pending' },

@@ -148,7 +148,7 @@ const MyBookings = () => {
     <div className={`${darkMode ? 'dark' : ''} min-h-screen bg-gradient-to-br from-green-50 via-green-100 to-green-200 dark:from-gray-900 dark:to-gray-800`}>
       <div className="flex">
         <Sidebar user={user} onToggleDark={() => setDarkMode(!darkMode)} darkMode={darkMode} />
-        <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-48 pb-8 min-h-screen">
+        <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8  pb-8 min-h-screen">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             {/* Header */}
             <div className="mb-8">

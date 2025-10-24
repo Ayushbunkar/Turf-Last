@@ -197,6 +197,14 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/dashboard/user/help"
+                  element={
+                    <ProtectedRoute role="user">
+                      <HelpSupport />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* === ADMIN DASHBOARD ROUTES === */}
                 <Route

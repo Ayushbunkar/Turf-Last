@@ -9,6 +9,7 @@ import logger from "../utils/logger.js";
 import PDFDocument from 'pdfkit';
 import { recordEvent } from '../utils/analytics.js';
 import { alertSyntheticOrder } from '../utils/alerts.js';
+import { createNotificationForUser } from './notificationController.js';
 
 // 🟢 USER: Create Booking
 export const createBooking = async (req, res) => {
@@ -423,30 +424,52 @@ export const verifyPayment = async (req, res) => {
 
       booking.status = "paid"; // mark as paid
       await booking.save();
+      // Create a DB-backed notification for the user (if possible)
+      try {
+        const userIdForNotif = booking.user ? String(booking.user) : (req.user?._id ? String(req.user._id) : null);
+        if (userIdForNotif) {
+          await createNotificationForUser(userIdForNotif, {
+            title: 'Booking Confirmed',
+            message: `Your booking ${booking._id} for ${booking.turf?.name || 'the turf'} on ${booking.date} is confirmed.`,
+            type: 'booking',
+            meta: { bookingId: booking._id, turfId: booking.turf },
+          }, { req });
+        }
+      } catch (e) {
+        logger.warn('verifyPayment: failed to create DB-backed notification', e?.message || e);
+      }
       // Emit socket update: booking paid
       try {
         const io = req.app && req.app.get('io');
         if (io) io.to('superadmin').emit('bookingUpdated', { bookingId: booking._id, status: 'paid' });
       } catch (e) { logger.warn('Socket emit failed for bookingUpdated (payment)', e.message); }
 
-      // send confirmation email
+      // send confirmation email (respecting user preferences)
       // compose human-friendly slot/time text from slots array
       const slotText = (booking.slots || []).map(s => `${s.startTime}-${s.endTime}`).join(', ');
-      // resolve recipient email defensively: prefer req.user, fall back to booking.user lookup
+      // resolve recipient and user preferences
       let recipient = req.user?.email;
       let recipientName = req.user?.name;
-      if (!recipient && booking.user) {
+      let targetUser = null;
+      if (booking.user) {
         try {
-          const User = await User.findById(booking.user).select('email name').lean();
-          if (User) {
-            recipient = User.email;
-            recipientName = User.name;
-          }
+          targetUser = await User.findById(booking.user).select('email name settings').lean();
         } catch (e) {
-          logger.warn('verifyPayment: failed to load user for email fallback', e.message);
+          logger.warn('verifyPayment: failed to load user for preferences/email fallback', e.message);
+          targetUser = null;
         }
       }
-      if (recipient) {
+      if (!recipient && targetUser) {
+        recipient = targetUser.email;
+        recipientName = targetUser.name;
+      }
+
+      // Determine preferences (default: enabled unless explicitly false)
+      const prefs = (targetUser && targetUser.settings) || (req.user && req.user.settings) || {};
+      const allowEmail = prefs.emailNotifications !== false && prefs.paymentAlerts !== false;
+      const allowPush = prefs.pushNotifications !== false && prefs.paymentAlerts !== false;
+
+      if (recipient && allowEmail) {
         const plain = `Hi ${recipientName || 'User'},\n\nYour payment of ₹${booking.price} for turf ${booking.turf?.name || 'the turf'} was successful.\n\nBooking ID: ${booking._id}\nDate: ${booking.date}\nSlots: ${slotText}\n\nThank you for booking with us.`;
         const html = `
           <div style="font-family:Arial,Helvetica,sans-serif;color:#111">
@@ -463,47 +486,51 @@ export const verifyPayment = async (req, res) => {
             <p style="margin-top:14px">You can view your booking details in your account. Thank you for choosing us.</p>
           </div>
         `;
-        try {
-          // generate a small PDF invoice buffer
-          const doc = new PDFDocument({ margin: 40 });
-          const buffers = [];
-          doc.on('data', (b) => buffers.push(b));
-          doc.on('end', async () => {
-            const pdfBuffer = Buffer.concat(buffers);
-            try {
-              await sendEmail({
-                to: recipient,
-                subject: 'Payment Successful',
-                text: plain,
-                html,
-                attachments: [
-                  { filename: `invoice-${booking._id}.pdf`, content: pdfBuffer }
-                ]
-              });
-              await recordEvent('email_sent', { bookingId: booking._id, to: recipient });
-            } catch (e) {
-              logger.warn('verifyPayment: sendEmail with attachment failed', e?.message || e);
-            }
-          });
+          try {
+            // generate a small PDF invoice buffer
+            const doc = new PDFDocument({ margin: 40 });
+            const buffers = [];
+            doc.on('data', (b) => buffers.push(b));
+            doc.on('end', async () => {
+              const pdfBuffer = Buffer.concat(buffers);
+              try {
+                await sendEmail({
+                  to: recipient,
+                  subject: 'Payment Successful',
+                  text: plain,
+                  html,
+                  attachments: [
+                    { filename: `invoice-${booking._id}.pdf`, content: pdfBuffer }
+                  ]
+                });
+                await recordEvent('email_sent', { bookingId: booking._id, to: recipient });
+              } catch (e) {
+                logger.warn('verifyPayment: sendEmail with attachment failed', e?.message || e);
+              }
+            });
 
-          // PDF content
-          doc.fontSize(18).text('Booking Invoice', { align: 'center' });
-          doc.moveDown();
-          doc.fontSize(12).text(`Booking ID: ${booking._id}`);
-          doc.text(`Turf: ${booking.turf?.name || ''}`);
-          doc.text(`Date: ${booking.date}`);
-          doc.text(`Slots: ${slotText}`);
-          doc.text(`Amount: ₹${booking.price}`);
-          doc.text(`Payment Txn: ${razorpay_payment_id}`);
-          doc.end();
-        } catch (e) {
-          logger.warn('verifyPayment: failed to generate/send invoice PDF', e?.message || e);
-        }
-        // record payment success analytics
-        try { await recordEvent('payment_success', { bookingId: booking._id, amount: booking.price, user: req.user?._id }); } catch (e) { /* non-fatal */ }
+            // PDF content
+            doc.fontSize(18).text('Booking Invoice', { align: 'center' });
+            doc.moveDown();
+            doc.fontSize(12).text(`Booking ID: ${booking._id}`);
+            doc.text(`Turf: ${booking.turf?.name || ''}`);
+            doc.text(`Date: ${booking.date}`);
+            doc.text(`Slots: ${slotText}`);
+            doc.text(`Amount: ₹${booking.price}`);
+            doc.text(`Payment Txn: ${razorpay_payment_id}`);
+            doc.end();
+          } catch (e) {
+            logger.warn('verifyPayment: failed to generate/send invoice PDF', e?.message || e);
+          }
+      } else if (!allowEmail) {
+        logger.info('verifyPayment: user disabled email notifications, skipping email', { bookingId: booking._id, user: booking.user });
       } else {
         logger.warn('verifyPayment: no recipient email available, skipping confirmation email', { bookingId: booking._id });
       }
+      // record payment success analytics
+      try { await recordEvent('payment_success', { bookingId: booking._id, amount: booking.price, user: req.user?._id }); } catch (e) { /* non-fatal */ }
+
+      // (push notifications handled by createNotificationForUser which emits via socket)
       logger.info('Payment verified and booking confirmed', { bookingId: booking._id, user: req.user?._id, amount: booking.price });
       res.json({ message: "Payment verified & booking confirmed", booking });
     } else {

@@ -1,0 +1,4 @@
+{"ts":"2025-10-24T17:00:08.332Z","event":"payment_success","payload":{"bookingId":"68fbb07bf6a2d26b643bd24e","amount":595,"user":"68fba8c71c5d95e63a6737fd"}}
+{"ts":"2025-10-24T17:00:13.808Z","event":"email_sent","payload":{"bookingId":"68fbb07bf6a2d26b643bd24e","to":"turfadmin0@gmail.com"}}
+{"ts":"2025-10-24T17:00:36.366Z","event":"payment_success","payload":{"bookingId":"68fbb07bf6a2d26b643bd24e","amount":595,"user":"68fba8c71c5d95e63a6737fd"}}
+{"ts":"2025-10-24T17:00:42.683Z","event":"email_sent","payload":{"bookingId":"68fbb07bf6a2d26b643bd24e","to":"turfadmin0@gmail.com"}}

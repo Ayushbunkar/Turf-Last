@@ -35,6 +35,17 @@ export async function updateMe(req, res) {
       delete updates.location;
     }
 
+    // Normalize dateOfBirth if provided as string (YYYY-MM-DD from HTML date input)
+    if (updates.dateOfBirth !== undefined && typeof updates.dateOfBirth === 'string') {
+      const parsed = new Date(updates.dateOfBirth);
+      if (!isNaN(parsed.getTime())) {
+        updates.dateOfBirth = parsed;
+      } else {
+        // if parsing fails, remove it so we don't store invalid value
+        delete updates.dateOfBirth;
+      }
+    }
+
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     const safeUser = user.toObject();
@@ -139,5 +150,98 @@ export async function updateSettings(req, res) {
   } catch (err) {
     console.error('updateSettings error:', err);
     res.status(500).json({ message: 'Failed to update settings', details: err.message });
+  }
+}
+
+// --- USER NOTIFICATIONS (simple in-memory implementation for dev) ---
+// Uses a global map by userId to hold an array of notifications.
+function ensureUserNotificationsStore() {
+  if (!global.__userNotifications) global.__userNotifications = new Map();
+}
+
+function seedNotificationsForUser(userId) {
+  ensureUserNotificationsStore();
+  const map = global.__userNotifications;
+  if (!map.has(String(userId))) {
+    const now = Date.now();
+    const list = [
+      { _id: `n_${now}_1`, title: 'Welcome!', message: 'Thanks for joining Turf app.', type: 'info', createdAt: new Date(now - 1000 * 60 * 60), read: false },
+      { _id: `n_${now}_2`, title: 'Booking Reminder', message: 'Your booking tomorrow at 7:00 PM', type: 'reminder', createdAt: new Date(now - 1000 * 60 * 60 * 24), read: false },
+    ];
+    map.set(String(userId), list);
+  }
+}
+
+export async function getUserNotifications(req, res) {
+  try {
+    const userId = req.user?._id;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    ensureUserNotificationsStore();
+    seedNotificationsForUser(userId);
+    const list = global.__userNotifications.get(String(userId)) || [];
+    return res.json({ notifications: list });
+  } catch (err) {
+    console.error('getUserNotifications error:', err);
+    return res.status(500).json({ notifications: [] });
+  }
+}
+
+export async function deleteUserNotification(req, res) {
+  try {
+    const userId = req.user?._id;
+    const id = req.params.id;
+    ensureUserNotificationsStore();
+    const list = global.__userNotifications.get(String(userId)) || [];
+    const after = list.filter(n => String(n._id) !== String(id));
+    global.__userNotifications.set(String(userId), after);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('deleteUserNotification error:', err);
+    return res.status(500).json({ error: 'Failed to delete' });
+  }
+}
+
+export async function markUserNotificationRead(req, res) {
+  try {
+    const userId = req.user?._id;
+    const id = req.params.id;
+    ensureUserNotificationsStore();
+    const list = global.__userNotifications.get(String(userId)) || [];
+    const updated = list.map(n => (String(n._id) === String(id) ? { ...n, read: true } : n));
+    global.__userNotifications.set(String(userId), updated);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('markUserNotificationRead error:', err);
+    return res.status(500).json({ error: 'Failed to mark read' });
+  }
+}
+
+export async function markAllUserNotificationsRead(req, res) {
+  try {
+    const userId = req.user?._id;
+    ensureUserNotificationsStore();
+    const list = global.__userNotifications.get(String(userId)) || [];
+    const updated = list.map(n => ({ ...n, read: true }));
+    global.__userNotifications.set(String(userId), updated);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('markAllUserNotificationsRead error:', err);
+    return res.status(500).json({ error: 'Failed to mark all read' });
+  }
+}
+
+export async function bulkDeleteUserNotifications(req, res) {
+  try {
+    const userId = req.user?._id;
+    const ids = (req.body && req.body.notificationIds) || (req.query && req.query.notificationIds) || [];
+    const idsSet = new Set((Array.isArray(ids) ? ids : typeof ids === 'string' ? [ids] : []).map(i => String(i)));
+    ensureUserNotificationsStore();
+    const list = global.__userNotifications.get(String(userId)) || [];
+    const after = list.filter(n => !idsSet.has(String(n._id)));
+    global.__userNotifications.set(String(userId), after);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('bulkDeleteUserNotifications error:', err);
+    return res.status(500).json({ error: 'Failed to bulk delete' });
   }
 }
