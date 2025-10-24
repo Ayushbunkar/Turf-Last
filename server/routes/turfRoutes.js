@@ -22,16 +22,16 @@ router.get("/:id", getTurfById);
 
 // Admin routes (admins and superadmins can manage and create turfs)
 // Allow both 'admin' and 'superadmin' to create turfs via API
-router.post("/", protect, authorize("admin", "superadmin"), upload.single('image'), createTurf);
-router.get("/my-turfs", protect, authorize("admin"), getMyTurfs);
+router.post("/", protect, authorize("admin", "turfadmin", "superadmin"), upload.single('image'), createTurf);
+router.get("/my-turfs", protect, authorize("admin", "turfadmin"), getMyTurfs);
 // Allow superadmin to update/delete any turf; admins can update/delete their own
 router.put("/:id", protect, (req, res, next) => {
-  // allow admin or superadmin to hit updateTurf; controller will enforce ownership
-  if (req.user?.role === 'admin' || req.user?.role === 'superadmin') return next();
+  // allow admin/turfadmin or superadmin to hit updateTurf; controller will enforce ownership
+  if (req.user?.role === 'admin' || req.user?.role === 'turfadmin' || req.user?.role === 'superadmin') return next();
   return res.status(403).json({ message: 'Not authorized' });
 }, upload.single('image'), updateTurf);
 router.delete("/:id", protect, (req, res, next) => {
-  if (req.user?.role === 'admin' || req.user?.role === 'superadmin') return next();
+  if (req.user?.role === 'admin' || req.user?.role === 'turfadmin' || req.user?.role === 'superadmin') return next();
   return res.status(403).json({ message: 'Not authorized' });
 }, deleteTurf);
 

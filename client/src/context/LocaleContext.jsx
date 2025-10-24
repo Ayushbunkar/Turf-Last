@@ -168,8 +168,8 @@ export function LocaleProvider({ children }) {
       try {
         await api.patch('/api/user/settings', payload);
       } catch (e) {
-        // non-fatal
-        console.warn('Failed to persist user settings', e?.message || e);
+        // non-fatal — include server response body when available to aid debugging
+        console.warn('Failed to persist user settings', e?.message || e, e?.response?.data || e?.toString());
       }
     }, 400);
 

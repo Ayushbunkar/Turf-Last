@@ -2,10 +2,13 @@ import Booking from "../models/Booking.js";
 import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
 import Turf from "../models/Turf.js";
+import mongoose from 'mongoose';
 import razorpay from "../config/razorpay.js";
 import crypto from "crypto";
 import { sendEmail } from "../utils/email.js";
 import logger from "../utils/logger.js";
+import fs from 'fs';
+import path from 'path';
 import PDFDocument from 'pdfkit';
 import { recordEvent } from '../utils/analytics.js';
 import { alertSyntheticOrder } from '../utils/alerts.js';
@@ -40,8 +43,8 @@ export const createBooking = async (req, res) => {
       logger.warn('Slot conflict detected', { turfId, date, slotStart: slot.startTime, conflictBookingId: slotConflict._id });
       const base = { message: "Slot already reserved or booked", bookingId: slotConflict._id };
   const isOwner = req.user ? String(slotConflict.user) === String(req.user?._id) : false;
-      const isAdmin = req.user?.role === 'admin' || req.user?.role === 'superadmin';
-      if (isAdmin || isOwner) {
+  const isTurfAdmin = req.user?.role === 'turfadmin' || req.user?.role === 'superadmin';
+    if (isTurfAdmin || isOwner) {
         const reserver = await User.findById(slotConflict.user).select('name email').lean();
         return res.status(409).json({ ...base, reserver: reserver ? { name: reserver.name, email: reserver.email } : undefined });
       }
@@ -148,18 +151,154 @@ export const getMyBookings = async (req, res) => {
 // 🟣 ADMIN: Get Bookings for My Turfs
 export const getAdminBookings = async (req, res) => {
   try {
-    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-  const turfs = await Turf.find({ admin: req.user?._id });
-    const turfIds = turfs.map((t) => t._id);
+    // Defensive logging to help debug intermittent 500s
+    const userId = req.user?._id ? String(req.user._id) : null;
+    const userRole = String(req.user?.role || '').toLowerCase();
+    logger.info('getAdminBookings requested by user', { user: userId, role: userRole });
 
-    const bookings = await Booking.find({ turf: { $in: turfIds } })
-      .populate("user", "name email")
-      .populate("turf", "name location")
-      .sort({ createdAt: -1 });
+    // Ensure JWT payload includes valid _id and role
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      logger.warn('getAdminBookings: invalid or missing req.user._id', { user: req.user });
+      return res.status(401).json({ message: 'Not authenticated: invalid user id' });
+    }
+    if (!['turfadmin', 'superadmin'].includes(userRole)) {
+      logger.warn('getAdminBookings: invalid role', { user: req.user });
+      return res.status(403).json({ message: 'Not authorized: invalid role' });
+    }
 
+    // Find turfs managed by this admin
+    let turfs = [];
+    try {
+      turfs = await Turf.find({ admin: userId }).lean();
+    } catch (turfErr) {
+      logger.error('getAdminBookings: Turf query failed', turfErr?.message || turfErr, { stack: turfErr?.stack });
+      return res.status(500).json({ message: 'Database error while fetching turfs', stack: turfErr?.stack });
+    }
+    let turfIds = Array.isArray(turfs) ? turfs.map((t) => t._id) : [];
+    // normalize to ObjectId instances to avoid casting errors during queries/populate
+    try {
+      turfIds = turfIds.map(id => mongoose.Types.ObjectId(id));
+    } catch (e) {
+      logger.warn('getAdminBookings: turfIds normalization failed', e?.message || e);
+      turfIds = turfIds.map(id => String(id));
+    }
+
+    logger.debug && logger.debug('getAdminBookings - turfs found', { count: turfIds.length });
+
+    // If no turfs found, return empty list early
+    if (!turfIds.length) {
+      logger.info('getAdminBookings: no turfs managed by this user', { user: userId });
+      return res.json([]);
+    }
+
+    // Support optional query filters from client (status, turfId, from, to, search)
+    const { status, turfId, from, to, search } = req.query || {};
+    const query = { turf: { $in: turfIds } };
+
+    // Validate status filter
+    if (status && status !== 'all') {
+      const validStatuses = ['pending','confirmed','paid','cancelled'];
+      if (typeof status !== 'string' || !validStatuses.includes(status.toLowerCase())) {
+        logger.warn('getAdminBookings: invalid status filter', { status });
+        return res.json([]);
+      }
+      query.status = status.toLowerCase();
+    }
+
+    // Validate turfId filter
+    if (turfId && turfId !== 'all') {
+      if (/^[0-9a-fA-F]{24}$/.test(turfId)) {
+        // Only allow turfId if it belongs to this admin
+        if (turfIds.some(id => String(id) === String(turfId))) {
+          try { query.turf = mongoose.Types.ObjectId(turfId); } catch (e) { query.turf = turfId; }
+        } else {
+          logger.warn('getAdminBookings: turfId not managed by this user', { turfId });
+          return res.json([]);
+        }
+      } else {
+        // treat turfId as name and try to resolve among admin's turfs
+        const found = turfs.find(t => String(t.name).toLowerCase() === String(turfId).toLowerCase());
+        if (found) query.turf = found._id;
+        else {
+          logger.warn('getAdminBookings: turf name not found among managed turfs', { turfId });
+          return res.json([]);
+        }
+      }
+    }
+
+    // Validate date filters
+    if (from || to) {
+      query.date = {};
+      if (from) {
+        if (isNaN(Date.parse(from))) {
+          logger.warn('getAdminBookings: invalid from date', { from });
+          return res.json([]);
+        }
+        query.date.$gte = from;
+      }
+      if (to) {
+        if (isNaN(Date.parse(to))) {
+          logger.warn('getAdminBookings: invalid to date', { to });
+          return res.json([]);
+        }
+        query.date.$lte = to;
+      }
+    }
+
+    // Log the resolved turfs and query to help debug server-side 500s
+    logger.debug && logger.debug('getAdminBookings - resolved turfs count', { count: turfIds.length });
+    logger.debug && logger.debug('getAdminBookings - query built', { query });
+
+    let bookingsRaw;
+    try {
+      bookingsRaw = await Booking.find(query)
+        .populate("user", "name email")
+        .populate("turf", "name location")
+        .sort({ createdAt: -1 });
+    } catch (dbErr) {
+      logger.error('getAdminBookings DB query failed', dbErr?.message || dbErr, { stack: dbErr?.stack });
+      try {
+        const logDir = path.join(process.cwd(), 'server', 'logs');
+        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+        const out = `\n[${new Date().toISOString()}] getAdminBookings DB FAILED - user=${userId} role=${userRole} error=${dbErr?.message}\n${dbErr?.stack || ''}\nQUERY:${JSON.stringify(query)}\nTURFS:${JSON.stringify(turfs.map(t=>t._id))}\n`;
+        fs.appendFileSync(path.join(logDir, 'bookings_errors.log'), out, { encoding: 'utf8' });
+      } catch (e) { logger.warn('Failed to write bookings_errors.log', e?.message || e); }
+      // return sanitized error for now (include details in development)
+      if (process.env.NODE_ENV !== 'production') {
+        return res.status(500).json({ message: dbErr?.message || 'Database error', stack: dbErr?.stack });
+      }
+      return res.status(500).json({ message: 'Database error while fetching admin bookings' });
+    }
+
+    // client-side search across user name/email or booking id (case-insensitive)
+    let bookings = bookingsRaw;
+    if (search) {
+      const s = String(search).toLowerCase();
+      bookings = bookingsRaw.filter(b => {
+        const name = (b.user && b.user.name) ? String(b.user.name).toLowerCase() : '';
+        const email = (b.user && b.user.email) ? String(b.user.email).toLowerCase() : '';
+        return name.includes(s) || email.includes(s) || String(b._id).includes(s);
+      });
+    }
+
+    logger.info('getAdminBookings: returning bookings', { user: userId, bookings: bookings.length });
     res.json(bookings);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    // Log full error for server-side diagnosis then return sanitized message
+    logger.error('getAdminBookings failed', error?.message || error, { stack: error?.stack });
+    try {
+      const logDir = path.join(process.cwd(), 'server', 'logs');
+      if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+      const out = `\n[${new Date().toISOString()}] getAdminBookings FAILED - user=${req.user?._id} role=${req.user?.role} error=${error?.message}\n${error?.stack || ''}\n`;
+      fs.appendFileSync(path.join(logDir, 'bookings_errors.log'), out, { encoding: 'utf8' });
+    } catch (e) {
+      logger.warn('Failed to write bookings_errors.log', e?.message || e);
+    }
+    // In development return the error details to the client to aid debugging
+    if (process.env.NODE_ENV !== 'production') {
+      return res.status(500).json({ message: error?.message || 'Internal server error', stack: error?.stack });
+    }
+    res.status(500).json({ message: 'Internal server error while fetching admin bookings' });
   }
 };
 
@@ -171,11 +310,17 @@ export const updateBookingStatus = async (req, res) => {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-    // Admin can update only their turf bookings
-    if (req.user?.role === "admin") {
-      const turf = await Turf.findById(booking.turf);
-      if (turf.admin.toString() !== req.user?._id.toString())
-        return res.status(403).json({ message: "Not authorized" });
+  // Turfadmin can update only their turf bookings
+  if (req.user?.role === "turfadmin") {
+      const turf = await Turf.findById(booking.turf).lean();
+      if (!turf) return res.status(404).json({ message: 'Turf not found' });
+      // Defensive: ensure turf.admin exists and matches the requesting user
+      const turfAdminId = turf.admin ? String(turf.admin) : null;
+      if (!turfAdminId) {
+        logger.warn('updateBookingStatus: turf has no admin, denying admin update', { turf: turf._id });
+        return res.status(403).json({ message: 'Not authorized' });
+      }
+      if (turfAdminId !== String(req.user?._id)) return res.status(403).json({ message: "Not authorized" });
     }
 
     booking.status = status;
@@ -272,8 +417,8 @@ export const getBookingById = async (req, res) => {
 
     // If user is not admin/superadmin, ensure they own the booking
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-    const isOwner = String(booking.user?._id || booking.user) === String(req.user?._id);
-    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'superadmin';
+  const isOwner = String(booking.user?._id || booking.user) === String(req.user?._id);
+  const isAdmin = req.user?.role === 'admin' || req.user?.role === 'turfadmin' || req.user?.role === 'superadmin';
     if (!isOwner && !isAdmin) return res.status(403).json({ message: 'Not authorized to view this booking' });
 
     res.json({ booking });
@@ -291,8 +436,8 @@ export const streamInvoice = async (req, res) => {
 
     // auth: owner or admin/superadmin
     if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-    const isOwner = String(booking.user?._id || booking.user) === String(req.user?._id);
-    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'superadmin';
+  const isOwner = String(booking.user?._id || booking.user) === String(req.user?._id);
+  const isAdmin = req.user?.role === 'admin' || req.user?.role === 'turfadmin' || req.user?.role === 'superadmin';
     if (!isOwner && !isAdmin) return res.status(403).json({ message: 'Not authorized to view this booking' });
 
     // Generate PDF stream
@@ -582,7 +727,7 @@ export const releasePendingBooking = async (req, res) => {
     if (!booking) return res.status(404).json({ message: "Booking not found" });
 
     // Only admins or superadmins can release pending bookings
-    if (!req.user || (req.user?.role !== 'admin' && req.user?.role !== 'superadmin')) {
+    if (!req.user || (req.user?.role !== 'admin' && req.user?.role !== 'turfadmin' && req.user?.role !== 'superadmin')) {
       return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -623,7 +768,7 @@ export const cleanupPendingBookings = async (req, res) => {
 export const getAuditLogs = async (req, res) => {
   try {
     // only admin/superadmin
-    if (!req.user || (req.user?.role !== 'admin' && req.user?.role !== 'superadmin')) return res.status(403).json({ message: 'Not authorized' });
+  if (!req.user || (req.user?.role !== 'admin' && req.user?.role !== 'turfadmin' && req.user?.role !== 'superadmin')) return res.status(403).json({ message: 'Not authorized' });
     const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(200).lean();
     res.json(logs);
   } catch (e) { res.status(500).json({ message: e.message }); }

@@ -206,11 +206,11 @@ const App = () => {
                   }
                 />
 
-                {/* === ADMIN DASHBOARD ROUTES === */}
+                {/* === TURFADMIN DASHBOARD ROUTES === */}
                 <Route
-                  path="/dashboard/admin"
+                  path="/dashboard/turfadmin"
                   element={
-                    <ProtectedRoute role="admin">
+                    <ProtectedRoute role={["admin", "turfadmin"]}>
                       <AdminDashboard />
                     </ProtectedRoute>
                   }

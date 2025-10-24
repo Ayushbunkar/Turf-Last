@@ -9,10 +9,10 @@ import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// SuperAdmin only
-router.get("/total-bookings", protect, authorize("superadmin"), getTotalBookings);
-router.get("/total-revenue", protect, authorize("superadmin"), getTotalRevenue);
-router.get("/turf-bookings", protect, authorize("superadmin"), getTurfBookings);
-router.get("/daily-revenue", protect, authorize("superadmin"), getDailyRevenue);
+// Accessible by superadmin and turfadmin (turfadmin will receive scoped results)
+router.get("/total-bookings", protect, authorize("superadmin", "turfadmin"), getTotalBookings);
+router.get("/total-revenue", protect, authorize("superadmin", "turfadmin"), getTotalRevenue);
+router.get("/turf-bookings", protect, authorize("superadmin", "turfadmin"), getTurfBookings);
+router.get("/daily-revenue", protect, authorize("superadmin", "turfadmin"), getDailyRevenue);
 
 export default router;

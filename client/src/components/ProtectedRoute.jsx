@@ -6,7 +6,13 @@ const ProtectedRoute = ({ children, role }) => {
   const { user } = useContext(AuthContext);
 
   if (!user) return <Navigate to="/login" />;
-  if (role && user.role !== role) return <Navigate to="/unauthorized" />;
+  if (role) {
+    // Normalize roles to lowercase for comparison
+    const allowed = (Array.isArray(role) ? role : [role]).map(r => String(r).toLowerCase());
+    const userRole = String(user.role || '').toLowerCase();
+  // Only turfadmin and superadmin can access turfadmin pages
+    if (!allowed.includes(userRole)) return <Navigate to="/unauthorized" />;
+  }
 
   return children;
 };

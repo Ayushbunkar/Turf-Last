@@ -301,10 +301,10 @@ const superAdminService = {
       const res = await api.post('/superadmin/turfadmins', payload || {});
       return res.data;
     } catch (err) {
-      // Fallback to public register (requires password in payload)
-      const body = { ...(payload || {}), role: 'Turfadmin' };
-      const fallback = await api.post('/api/auth/register', body);
-      return fallback.data;
+  // Fallback to public register (requires password in payload)
+  const body = { ...(payload || {}), role: 'turfadmin' };
+  const fallback = await api.post('/api/auth/register', body);
+  return fallback.data;
     }
   },
 

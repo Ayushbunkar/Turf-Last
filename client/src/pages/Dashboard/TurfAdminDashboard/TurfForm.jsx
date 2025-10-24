@@ -14,8 +14,8 @@ const PLACEHOLDER_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(
 
 export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, darkMode }) {
   const { user, role } = useAuth();
-  // Allow both admin and superadmin to create/edit turfs
-  const isAdmin = (role === "admin" || role === "superadmin") || (user?.role === "admin" || user?.role === "superadmin");
+  // Allow both admin/turfadmin and superadmin to create/edit turfs
+  const isAdmin = (role === "admin" || role === "turfadmin" || role === "superadmin") || (user?.role === "admin" || user?.role === "turfadmin" || user?.role === "superadmin");
   const [form, setForm] = useState({
     name: "",
     location: "",

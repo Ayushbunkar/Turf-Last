@@ -16,8 +16,8 @@ function Navbar() {
   }, [location.pathname]);
 
   const dashboardPath =
-    role === "admin"
-      ? "/dashboard/admin"
+    (role === "admin" || role === "turfadmin")
+      ? "/dashboard/turfadmin"
       : role === "superadmin"
       ? "/dashboard/superadmin"
       : role === "user"

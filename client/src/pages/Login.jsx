@@ -25,10 +25,12 @@ export default function Login() {
   login(data.user, data.token);
 
   setMessage("Login successful!");
+      const normalizedRole = String(data.user?.role || "").toLowerCase();
       setTimeout(() => {
-        if (data.user.role === "admin") {
-          navigate("/dashboard/admin", { replace: true });
-        } else if (data.user.role === "superadmin") {
+        // Route only turfadmin to the turfadmin dashboard
+        if (normalizedRole === "turfadmin") {
+          navigate("/dashboard/turfadmin", { replace: true });
+        } else if (normalizedRole === "superadmin") {
           navigate("/dashboard/superadmin", { replace: true });
         } else {
           navigate("/dashboard/user", { replace: true });

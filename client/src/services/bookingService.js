@@ -3,12 +3,13 @@ import api from "../config/Api";
 const bookingService = {
   async fetchBookings(query = '') {
     try {
-      // Admin bookings endpoint
-      const res = await api.get(`/api/bookings/admin${query ? `?${query}` : ''}`);
+  // Admin (turfadmin) bookings endpoint
+  const res = await api.get(`/api/bookings/turfadmin${query ? `?${query}` : ''}`);
       return res.data;
     } catch (e) {
-      // fallback to empty list for dev
-      return [];
+      // Bubble up the error so the UI can show the real server response
+      // (Previously swallowed which made debugging server 500s difficult)
+      throw e;
     }
   },
 

@@ -67,7 +67,7 @@ const TurfAdminManagement = () => {
   }, []);
 
   const handleStatus = (id, newStatus) => {
-    toast.success(`Admin ${newStatus}`);
+    toast.success(`Turfadmin ${newStatus}`);
     setAdmins(a => a.map(x => (x._id === id ? { ...x, status: newStatus } : x)));
   };
 
@@ -82,8 +82,8 @@ const TurfAdminManagement = () => {
   const data = filtered.slice((page - 1) * perPage, page * perPage);
 
   const stats = [
-    { label: "Total Admins", value: admins.length, icon: Shield, color: "blue" },
-    { label: "Active Admins", value: admins.filter(a => a.status === "approved").length, icon: CheckCircle, color: "green" },
+  { label: "Total Turfadmins", value: admins.length, icon: Shield, color: "blue" },
+  { label: "Active Turfadmins", value: admins.filter(a => a.status === "approved").length, icon: CheckCircle, color: "green" },
     { label: "Pending", value: admins.filter(a => a.status === "pending").length, icon: Clock, color: "yellow" },
     { label: "Total Turfs", value: admins.reduce((s, a) => s + (a.metrics?.turfsManaged || 0), 0), icon: Building, color: "purple" },
   ];
@@ -94,12 +94,12 @@ const TurfAdminManagement = () => {
         {/* Header */}
         <div className="flex justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Turf Admin Management</h1>
-            <p className="text-gray-600">Manage all turf administrators</p>
+            <h1 className="text-3xl font-bold">Turfadmin Management</h1>
+            <p className="text-gray-600">Manage all turfadmins</p>
           </div>
           <button onClick={() => setModal({ type: "create" })}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            <Plus className="w-4 h-4" /> Add Admin
+            <Plus className="w-4 h-4" /> Add Turfadmin
           </button>
         </div>
 
@@ -132,7 +132,7 @@ const TurfAdminManagement = () => {
         <div className={`p-6 rounded-xl shadow-sm mb-6 flex items-center gap-4 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border'} `}>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search admins..."
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search turfadmins..."
               className={`w-full pl-10 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400' : ''}`} />
           </div>
           <FilterDropdown value={status} onChange={setStatus} />
@@ -143,7 +143,7 @@ const TurfAdminManagement = () => {
           <table className="w-full">
             <thead>
               <tr className={`border-b ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                {["Admin", "Status", "Performance", "Actions"].map(h => (
+                {["Turfadmin", "Status", "Performance", "Actions"].map(h => (
                   <th key={h} className="px-6 py-4 text-left text-sm font-semibold">{h}</th>
                 ))}
               </tr>
@@ -154,7 +154,7 @@ const TurfAdminManagement = () => {
               ) : data.length ? (
                 data.map(a => <AdminRow key={a._id} admin={a} onView={setModal} onStatus={handleStatus} />)
               ) : (
-                <tr><td colSpan="4" className={`py-12 text-center ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>No admins found</td></tr>
+                <tr><td colSpan="4" className={`py-12 text-center ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>No turfadmins found</td></tr>
               )}
             </tbody>
           </table>
@@ -252,7 +252,7 @@ const Modal = ({ data, onClose, onStatus }) => (
           className="bg-white rounded-xl p-6 max-w-md w-full shadow-lg">
           <div className="flex justify-between mb-4">
             <h2 className="text-xl font-bold">
-              {data.type === "create" ? "Add Admin" : data.type === "approve" ? "Approve Admin" : "Admin Details"}
+              {data.type === "create" ? "Add Turfadmin" : data.type === "approve" ? "Approve Turfadmin" : "Turfadmin Details"}
             </h2>
             <button onClick={onClose}><X className="w-6 h-6" /></button>
           </div>

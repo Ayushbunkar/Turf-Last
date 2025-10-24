@@ -11,7 +11,8 @@ router.post("/create-order", protect, authorize("user"), createPaymentOrder);
 router.get('/user', protect, authorize('user'), getUserPayments);
 
 // Validate Razorpay keys (protected)
-router.post('/validate-keys', protect, authorize('superadmin','admin'), validateRazorpayKeys);
+// allow superadmin and both admin/turfadmin during transition
+router.post('/validate-keys', protect, authorize('superadmin','admin','turfadmin'), validateRazorpayKeys);
 
 // Dev-only helper: complete a payment without Razorpay (for local testing)
 if (process.env.NODE_ENV !== 'production') {

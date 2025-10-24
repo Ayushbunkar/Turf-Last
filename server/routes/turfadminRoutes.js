@@ -5,9 +5,10 @@ import { protect, authorize } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 // Turf admin analytics
-router.get("/analytics", protect, authorize("Turfadmin"), getTurfAdminAnalytics);
+// Turfadmin analytics (accept admin during migration)
+router.get("/analytics", protect, authorize("turfadmin", "admin"), getTurfAdminAnalytics);
 
-// Turf admin dashboard
-router.get("/dashboard", protect, authorize("Turfadmin"), getTurfAdminDashboard);
+// Turfadmin dashboard
+router.get("/dashboard", protect, authorize("turfadmin", "admin"), getTurfAdminDashboard);
 
 export default router;

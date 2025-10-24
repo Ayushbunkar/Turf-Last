@@ -488,34 +488,22 @@ const SuperAdminBookingManagement = () => {
                           <MapPin className="w-3 h-3 mr-1" />
                           {b.turf.location}
                         </div>
-                        <div className="text-xs text-gray-500">Admin: {b.turf.admin}</div>
+                        <div className="text-xs text-gray-500">Turfadmin: {b.turf.admin}</div>
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <div className="font-medium flex items-center">
                           <Calendar className="w-4 h-4 mr-2 text-gray-400" />
                           {new Date(b.bookingDate).toLocaleDateString()}
                         </div>
-                        <div className="text-gray-500 flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {b.timeSlot}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {b.duration}h • {b.players || 10} players
-                        </div>
+                        <div className="text-gray-500">{b.timeSlot}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        <div className="font-medium flex items-center">
-                          <IndianRupee className="w-4 h-4 mr-1 text-green-600" />₹{b.amount}
+                      <td className="px-6 py-4">
+                        <div className="font-medium">₹{b.amount}</div>
+                        <div className="mt-1">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${paymentColor[b.paymentStatus]}`}>
+                            {b.paymentStatus}
+                          </span>
                         </div>
-                        <div className="text-xs text-gray-500 flex items-center">
-                          <CreditCard className="w-3 h-3 mr-1" />
-                          {b.paymentMethod}
-                        </div>
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${paymentColor[b.paymentStatus]}`}
-                        >
-                          {b.paymentStatus}
-                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <span

@@ -11,7 +11,7 @@ import {
 
 // === MOCK DATA & SERVICES ===
 import api from '../../../config/Api';
-import { exportBookings as exportBookingsServiceFromClient } from '../../../services/bookingService';
+import { fetchBookings as fetchBookingsServiceFromClient, exportBookings as exportBookingsServiceFromClient, updateBookingStatus as updateBookingStatusService } from '../../../services/bookingService';
 
 // Real API services
 const fetchTurfsService = async () => {
@@ -19,14 +19,25 @@ const fetchTurfsService = async () => {
   return res.data;
 };
 
-const fetchBookingsService = async (params) => {
-  const res = await api.get(`/api/bookings?${params}`);
-  return res.data;
-};
+  const fetchBookingsService = async (params) => {
+    // Use centralized bookingService which knows the correct turfadmin endpoint
+    try {
+      // bookingService expects a query string WITHOUT leading '?'
+      const q = params ? params : '';
+      const data = await fetchBookingsServiceFromClient(q);
+      return data;
+    } catch (e) {
+      throw e;
+    }
+  };
 
 const updateBookingStatus = async (id, payload) => {
-  const res = await api.put(`/api/bookings/${id}/status`, payload);
-  return res.data;
+  // Prefer bookingService implementation which wraps API errors
+  try {
+    return await updateBookingStatusService(id, payload);
+  } catch (e) {
+    throw e;
+  }
 };
 
 // Keep API endpoint call for server-side export if needed, but use client-side exporter by default
@@ -39,6 +50,7 @@ const exportBookingsService = async (params) => {
 const getStatusClasses = status => {
   switch (status) {
     case "confirmed": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+    case "paid": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
     case "completed": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
     case "cancelled": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
     default: return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
@@ -47,7 +59,10 @@ const getStatusClasses = status => {
 
 // === BOOKING ROW COMPONENT ===
 const BookingRow = React.memo(({ booking, handleStatusChange, releasePending, pendingTTL }) => {
-  const { user, turf, date, timeSlot, amount, duration, status, _id, createdAt } = booking;
+  const { user, turf, date, timeSlot, duration, status, _id, createdAt } = booking;
+  // amount may be stored as booking.price or booking.payment.amount depending on lifecycle
+  const rawAmount = booking?.payment?.amount ?? booking?.price ?? booking?.amount ?? 0;
+  const amount = typeof rawAmount === 'number' ? rawAmount : Number(rawAmount || 0);
   const [pendingLeft, setPendingLeft] = React.useState(null);
 
   React.useEffect(() => {
@@ -82,14 +97,14 @@ const BookingRow = React.memo(({ booking, handleStatusChange, releasePending, pe
             </span>
           </div>
           <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900 dark:text-white">{user?.name || "Unknown"}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{user?.email || "No email"}</div>
+            <div className="text-sm font-medium text-white">{user?.name || "Unknown"}</div>
+            <div className="text-sm text-gray-300">{user?.email || "No email"}</div>
           </div>
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900 dark:text-white">{turf?.name}</div>
-        <div className="text-sm text-gray-500 dark:text-gray-400 flex flex-col space-y-1 mt-1">
+  <div className="text-sm font-medium text-white">{turf?.name}</div>
+  <div className="text-sm text-gray-300 flex flex-col space-y-1 mt-1">
           <span className="flex items-center">
             <Calendar className="mr-1 h-3 w-3" />
             {new Date(date).toLocaleDateString()}
@@ -98,11 +113,11 @@ const BookingRow = React.memo(({ booking, handleStatusChange, releasePending, pe
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-700">{pendingLeft ?? '—'}</div>
+        <div className="text-sm text-white">{pendingLeft ?? '—'}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900 dark:text-white">₹{amount}</div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">ID: {_id}</div>
+  <div className="text-sm font-medium text-white">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount)}</div>
+        <div className="text-sm text-gray-300">ID: {_id}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded-full capitalize ${getStatusClasses(status)}`}>
@@ -133,7 +148,8 @@ export default function TurfAdminBookings() {
   const { darkMode } = useOutletContext() || {};
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filters, setFilters] = useState({ status: "all", search: "", from: "", to: "", turfId: "all" });
+  const DEFAULT_FILTERS = { status: "all", search: "", from: "", to: "", turfId: "all" };
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [turfs, setTurfs] = useState([]);
   const [showFilters, setShowFilters] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -141,17 +157,35 @@ export default function TurfAdminBookings() {
   const [auditOpen, setAuditOpen] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
 
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (explicitFilters) => {
     setIsLoading(true);
     try {
+      const used = explicitFilters || filters || DEFAULT_FILTERS;
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
+      Object.entries(used).forEach(([key, value]) => {
         if (value !== "all" && value) params.append(key, value);
       });
       const data = await fetchBookingsService(params.toString());
-      setBookings(data);
+      // Expecting an array from the server. If server returns an object (e.g. { bookings: [] }), normalize it.
+      const normalized = Array.isArray(data) ? data : (Array.isArray(data?.bookings) ? data.bookings : []);
+      setBookings(normalized);
     } catch (err) {
-      toast.error("Could not fetch bookings");
+      console.error('fetchBookings error:', err);
+      const serverMessage = err?.response?.data?.message || err?.message || 'Could not fetch bookings';
+      toast.error(serverMessage);
+
+      // Fallback: try fetching a sample of bookings from the dev-only debug endpoint so UI can show real data
+      try {
+        if (process.env.NODE_ENV !== 'production') {
+          const dbg = await api.get('/api/debug/bookings-sample');
+          if (Array.isArray(dbg.data)) {
+            setBookings(dbg.data);
+            toast.success('Loaded sample bookings from debug endpoint');
+          }
+        }
+      } catch (dbgErr) {
+        console.error('debug fallback failed', dbgErr);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -170,9 +204,25 @@ export default function TurfAdminBookings() {
     fetchBookings();
   }, [fetchBookings]);
 
-  const handleFilterChange = e => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  const applyFilters = () => setCurrentPage(1) || fetchBookings();
-  const resetFilters = () => setFilters({ status: "all", search: "", from: "", to: "", turfId: "all" }) || setCurrentPage(1);
+  const handleFilterChange = e => {
+    const name = e.target.name;
+    let value = e.target.value;
+    // normalize search input by trimming whitespace
+    if (name === 'search') value = String(value).trim();
+    // date inputs are fine as-is (YYYY-MM-DD)
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+  const applyFilters = () => {
+    setCurrentPage(1);
+    // use current filters state explicitly to avoid any race
+    fetchBookings(filters);
+  };
+  const resetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setCurrentPage(1);
+    // immediately fetch using the reset values so we don't race with setState
+    fetchBookings(DEFAULT_FILTERS);
+  };
 
   const handleStatusChange = async (bookingId, newStatus) => {
     try {
@@ -273,16 +323,16 @@ export default function TurfAdminBookings() {
   const pendingTTL = Number(import.meta.env.VITE_PENDING_BOOKING_TTL) || 900;
 
   return (
-    <div className={`p-6 ${themeClass}`}>
-      <div className="max-w-7xl mx-auto">
-  <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Manage Bookings</h1>
-          <div className="flex space-x-3">
-            <button onClick={() => setShowFilters(!showFilters)} className="px-4 py-2 bg-transparent border rounded-lg flex items-center space-x-2 hover:bg-gray-100/10 dark:hover:bg-gray-700/40">
+    <div className={`p-4 sm:p-6 ${themeClass}`}>
+      <div className="max-w-7xl mx-auto w-full">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold">Manage Bookings</h1>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            <button onClick={() => setShowFilters(!showFilters)} className="px-3 py-2 bg-transparent border rounded-lg flex items-center space-x-2 hover:bg-gray-100/10 dark:hover:bg-gray-700/40 text-xs sm:text-sm">
               <Filter className="h-4 w-4" /> <span>{showFilters ? "Hide Filters" : "Show Filters"}</span>
             </button>
-            <button onClick={async () => { setAuditOpen(true); try { const res = await api.get('/api/bookings/audit-logs'); setAuditLogs(res.data || []); } catch(e){ setAuditLogs([]); } }} className="px-4 py-2 bg-transparent border rounded-lg">Audit Logs</button>
-            <button onClick={exportBookings} className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center space-x-2 hover:bg-green-700">
+            <button onClick={async () => { setAuditOpen(true); try { const res = await api.get('/api/bookings/audit-logs'); setAuditLogs(res.data || []); } catch(e){ setAuditLogs([]); } }} className="px-3 py-2 bg-transparent border rounded-lg text-xs sm:text-sm">Audit Logs</button>
+            <button onClick={exportBookings} className="px-3 py-2 bg-green-600 text-white rounded-lg flex items-center space-x-2 hover:bg-green-700 text-xs sm:text-sm">
               <DownloadCloud className="h-4 w-4" /> <span>Export CSV</span>
             </button>
           </div>
@@ -290,13 +340,13 @@ export default function TurfAdminBookings() {
 
         {/* Filters */}
         {showFilters && (
-          <div className="bg-transparent p-4 rounded-lg mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-transparent p-2 sm:p-4 rounded-lg mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Status */}
             <div>
               <label className="block text-sm  mb-1">Status</label>
               <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full  text-white rounded-lg p-2 dark:bg-gray-700">
-                <option value="all " className="text-white">All Statuses</option>
-                {["pending", "confirmed", "completed", "cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="all" className="text-white">All Statuses</option>
+                {["pending", "confirmed", "paid", "completed", "cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
@@ -331,8 +381,11 @@ export default function TurfAdminBookings() {
             </div>
 
             <div className="col-span-full flex justify-end space-x-3">
-              <button onClick={resetFilters} className="px-4 py-2 bg-gray-200/20 dark:bg-gray-700/40 rounded-lg">Reset</button>
-              <button onClick={applyFilters} className="px-4 py-2 bg-green-600 text-white rounded-lg">Apply Filters</button>
+              <button onClick={resetFilters} className="px-4 py-2 bg-gray-200/20 dark:bg-gray-700/40 rounded-lg" disabled={isLoading}>Reset</button>
+              <button onClick={applyFilters} className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center space-x-2" disabled={isLoading}>
+                {isLoading ? <svg className="animate-spin h-4 w-4 mr-2 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg> : null}
+                <span>Apply Filters</span>
+              </button>
             </div>
           </div>
         )}
@@ -341,12 +394,12 @@ export default function TurfAdminBookings() {
         {isLoading ? (
           <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-green-500"></div></div>
         ) : (
-          <div className="bg-transparent rounded-lg overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="bg-transparent rounded-lg overflow-x-auto w-full">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-xs sm:text-sm">
               <thead className="bg-transparent">
                 <tr>
                   {["User", "Turf & Time", "Details", "Pending Left", "Status", "Actions"].map(h => (
-                    <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{h}</th>
+                    <th key={h} className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -357,7 +410,7 @@ export default function TurfAdminBookings() {
 
             {/* Empty State */}
             {bookings.length === 0 && (
-              <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+              <div className="p-4 sm:p-6 text-center text-gray-500 dark:text-gray-400">
                 <AlertTriangle className="mx-auto h-6 w-6 mb-2" />
                 No bookings found
               </div>
@@ -367,20 +420,20 @@ export default function TurfAdminBookings() {
       </div>
       {/* Audit Logs Modal */}
       {auditOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
-          <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full p-4">
-            <div className="flex justify-between items-center mb-2">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 sm:pt-20 px-2">
+          <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full p-2 sm:p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-2 gap-2">
               <h3 className="text-lg font-bold">Audit Logs</h3>
               <button onClick={() => setAuditOpen(false)} className="px-3 py-1">Close</button>
             </div>
-            <div className="max-h-96 overflow-auto text-sm">
+            <div className="max-h-96 overflow-auto text-xs sm:text-sm">
               {auditLogs.length === 0 ? <div className="text-gray-500">No logs</div> : (
                 <ul className="space-y-2">
                   {auditLogs.map(log => (
                     <li key={log._id} className="border p-2 rounded">
                       <div className="text-xs text-gray-500">{new Date(log.createdAt).toLocaleString()}</div>
                       <div className="font-medium">{log.action}</div>
-                      <div className="text-sm text-gray-700">Target Booking: {log.targetBooking}</div>
+                      <div className="text-xs sm:text-sm text-gray-700">Target Booking: {log.targetBooking}</div>
                       <div className="text-xs text-gray-500">Meta: {JSON.stringify(log.meta)}</div>
                     </li>
                   ))}
@@ -392,14 +445,14 @@ export default function TurfAdminBookings() {
       )}
       {/* Release Reason Modal */}
       {releaseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg max-w-md w-full p-4">
-            <div className="flex justify-between items-center mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg max-w-md w-full p-2 sm:p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-2 gap-2">
               <h3 className="text-lg font-bold">Release Pending Booking</h3>
               <button onClick={closeReleaseModal} className="px-2 py-1">X</button>
             </div>
-            <div className="mb-3 text-sm text-gray-700 dark:text-gray-300">Please provide a reason for releasing this pending booking. This will be recorded in the audit logs.</div>
-            <textarea value={releaseReason} onChange={e => setReleaseReason(e.target.value)} placeholder="Reason (required)" className="w-full p-2 border rounded mb-3 dark:bg-gray-800" rows={4} />
+            <div className="mb-3 text-xs sm:text-sm text-gray-700 dark:text-gray-300">Please provide a reason for releasing this pending booking. This will be recorded in the audit logs.</div>
+            <textarea value={releaseReason} onChange={e => setReleaseReason(e.target.value)} placeholder="Reason (required)" className="w-full p-2 border rounded mb-3 dark:bg-gray-800 text-xs sm:text-sm" rows={4} />
             <div className="flex justify-end space-x-3">
               <button onClick={closeReleaseModal} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
               <button onClick={confirmRelease} className="px-4 py-2 bg-red-600 text-white rounded">Release Booking</button>

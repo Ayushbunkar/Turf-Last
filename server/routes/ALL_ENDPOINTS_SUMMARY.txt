@@ -18,7 +18,7 @@ GET  /api/bookings/my-bookings (protect, user)
 GET  /api/bookings/turf/:turfId (public) - get bookings for turf (date filter)
 GET  /api/bookings/:id (protect) - get booking by id
 GET  /api/bookings/:id/invoice (protect) - invoice
-GET  /api/bookings/admin (protect, admin) - admin bookings for their turfs
+GET  /api/bookings/turfadmin (protect, admin|turfadmin) - turfadmin bookings for their turfs
 PUT  /api/bookings/:id/status (protect, admin|superadmin) - update status
 POST /api/bookings/:bookingId/release (protect, admin|superadmin)
 POST /api/bookings/cleanup-pending (protect, superadmin)
@@ -28,23 +28,23 @@ GET  /api/bookings/all (protect, superadmin) - get all bookings
 // Payments (/api/payments)
 POST /api/payments/create-order (protect, user)
 GET  /api/payments/user (protect, user)
-POST /api/payments/validate-keys (protect, superadmin|admin)
+POST /api/payments/validate-keys (protect, superadmin|admin|turfadmin)
 POST /api/payments/dev/complete (dev only)
 POST /api/payments/verify (protect, user)
 
 // Turf routes (/api/turfs)
 GET  /api/turfs/ (public)
 GET  /api/turfs/:id (public)
-POST /api/turfs/ (protect, admin)
-GET  /api/turfs/my-turfs (protect, admin)
-PUT  /api/turfs/:id (protect, admin|superadmin) - controller enforces ownership
-DELETE /api/turfs/:id (protect, admin|superadmin)
+POST /api/turfs/ (protect, admin|turfadmin)
+GET  /api/turfs/my-turfs (protect, admin|turfadmin)
+PUT  /api/turfs/:id (protect, admin|turfadmin|superadmin) - controller enforces ownership
+DELETE /api/turfs/:id (protect, admin|turfadmin|superadmin)
 PATCH /api/turfs/:id/approve (protect, superadmin)
 PATCH /api/turfs/:id/block (protect, superadmin)
 
 // Turfadmin (/api/turfadmin)
-GET /api/turfadmin/analytics (protect, Turfadmin)
-GET /api/turfadmin/dashboard (protect, Turfadmin)
+GET /api/turfadmin/analytics (protect, turfadmin|admin)
+GET /api/turfadmin/dashboard (protect, turfadmin|admin)
 
 // User (/api/user)
 GET /api/user/me (protect)

@@ -15,14 +15,14 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const menuItems = [
-  { icon: Home, label: "Dashboard", path: "/dashboard/admin" },
-  { icon: Flag, label: "My Turfs", path: "/dashboard/admin/turfs" },
-  { icon: Calendar, label: "Bookings", path: "/dashboard/admin/my-bookings" },
-  { icon: BarChart3, label: "Analytics & Revenue", path: "/dashboard/admin/analytics" },
-  { icon: User, label: "Profile", path: "/dashboard/admin/profile" },
-  { icon: Bell, label: "Notifications", path: "/dashboard/admin/notifications" },
-  { icon: Settings, label: "Settings", path: "/dashboard/admin/settings" },
-  { icon: HelpCircle, label: "Help & Support", path: "/dashboard/admin/help" },
+  { icon: Home, label: "Dashboard", path: "/dashboard/turfadmin" },
+  { icon: Flag, label: "My Turfs", path: "/dashboard/turfadmin/turfs" },
+  { icon: Calendar, label: "Bookings", path: "/dashboard/turfadmin/my-bookings" },
+  { icon: BarChart3, label: "Analytics & Revenue", path: "/dashboard/turfadmin/analytics" },
+  { icon: User, label: "Profile", path: "/dashboard/turfadmin/profile" },
+  { icon: Bell, label: "Notifications", path: "/dashboard/turfadmin/notifications" },
+  { icon: Settings, label: "Settings", path: "/dashboard/turfadmin/settings" },
+  { icon: HelpCircle, label: "Help & Support", path: "/dashboard/turfadmin/help" },
 ];
 
 const AdminSidebar = ({ darkMode = false, isMobileOpen = false }) => {
@@ -51,11 +51,11 @@ const AdminSidebar = ({ darkMode = false, isMobileOpen = false }) => {
           <div className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center text-lg font-semibold">
             {user?.name?.[0]?.toUpperCase() || "T"}
           </div>
-          <div>
+            <div>
             <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
-              {user?.name || "Turf Admin"}
+              {user?.name || "Turfadmin"}
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Administrator</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Turfadmin</p>
           </div>
         </div>
       </div>

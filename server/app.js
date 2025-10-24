@@ -12,6 +12,7 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import superadminRoutes from './routes/superadminRoutes.js';
 import turfadminRoutes from './routes/turfadminRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import debugRoutes from './routes/debugRoutes.js';
 import { protect } from './middleware/authMiddleware.js';
 import {
   getUserNotifications,
@@ -50,6 +51,9 @@ app.use('/api/turfs', turfRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+// Dev debug routes (sample data)
+app.use('/api/debug', debugRoutes);
 
 app.use('/api/superadmin', superadminRoutes);
 app.use('/api/turfadmin', turfadminRoutes);

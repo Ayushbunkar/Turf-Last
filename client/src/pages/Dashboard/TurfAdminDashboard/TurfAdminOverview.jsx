@@ -5,11 +5,11 @@ import { Flag, Calendar, BarChart3 } from 'lucide-react';
 export default function TurfAdminOverview() {
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Turf Admin Overview</h1>
+      <h1 className="text-3xl font-bold mb-4">Turfadmin Overview</h1>
       <p className="text-sm text-gray-600 mb-6">Quick links and summary for your turfs.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link to="/dashboard/admin/turfs" className="p-4 rounded-lg border hover:shadow-sm bg-white dark:bg-gray-800">
+  <Link to="/dashboard/turfadmin/turfs" className="p-4 rounded-lg border hover:shadow-sm bg-white dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <Flag className="w-6 h-6 text-green-500" />
             <div>
@@ -19,7 +19,7 @@ export default function TurfAdminOverview() {
           </div>
         </Link>
 
-        <Link to="/dashboard/admin/my-bookings" className="p-4 rounded-lg border hover:shadow-sm bg-white dark:bg-gray-800">
+  <Link to="/dashboard/turfadmin/my-bookings" className="p-4 rounded-lg border hover:shadow-sm bg-white dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <Calendar className="w-6 h-6 text-blue-500" />
             <div>
@@ -29,7 +29,7 @@ export default function TurfAdminOverview() {
           </div>
         </Link>
 
-        <Link to="/dashboard/admin/analytics" className="p-4 rounded-lg border hover:shadow-sm bg-white dark:bg-gray-800">
+  <Link to="/dashboard/turfadmin/analytics" className="p-4 rounded-lg border hover:shadow-sm bg-white dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <BarChart3 className="w-6 h-6 text-purple-500" />
             <div>

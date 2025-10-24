@@ -143,8 +143,8 @@ const SuperAdminTurfAdminsPage = () => {
   };
 
   const statCards = [
-    { title: "Total Turf Admins", value: stats.total, icon: Shield, color: "blue" },
-    { title: "Active Admins", value: stats.active, icon: CheckCircle, color: "green" },
+  { title: "Total Turfadmins", value: stats.total, icon: Shield, color: "blue" },
+  { title: "Active Turfadmins", value: stats.active, icon: CheckCircle, color: "green" },
     { title: "Pending Admins", value: stats.pending, icon: Clock, color: "yellow" },
     { title: "Total Turfs Managed", value: stats.totalTurfs, icon: Users, color: "purple" },
     { title: "Average Rating", value: stats.avgRating, icon: Star, color: "orange", format: { decimals: 1 } }
@@ -201,10 +201,11 @@ const SuperAdminTurfAdminsPage = () => {
         </div>
 
         {/* Filters & Add Button */}
-        <h2 className="text-xl font-semibold text-gray-700 mb-2">Turf Admins List</h2>
+    <h2 className="text-xl font-semibold text-gray-700 mb-2">Turf Admins List</h2>
+  <h2 className="text-xl font-semibold text-gray-700 mb-2">turfadmins List</h2>
         <div className="flex flex-col sm:flex-row justify-between gap-2 items-center mb-4">
           <div className="flex gap-2 w-full sm:w-auto">
-            <input type="text" placeholder="Search admins" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="px-3 py-2 rounded border w-full sm:w-64"/>
+            <input type="text" placeholder="Search turfadmins" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="px-3 py-2 rounded border w-full sm:w-64"/>
             <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="px-3 py-2 rounded border">
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -213,6 +214,7 @@ const SuperAdminTurfAdminsPage = () => {
             </select>
           </div>
           <button onClick={()=>setShowCreateModal(true)} className="px-4 py-2 bg-blue-500 text-white rounded flex items-center gap-1"><UserPlus className="w-4 h-4"/> Add Admin</button>
+          <button onClick={()=>setShowCreateModal(true)} className="px-4 py-2 bg-blue-500 text-white rounded flex items-center gap-1"><UserPlus className="w-4 h-4"/> Add turfadmin</button>
         </div>
 
         {/* Table */}
@@ -232,7 +234,7 @@ const SuperAdminTurfAdminsPage = () => {
               {loading ? (
                 <tr><td colSpan={6} className="text-center py-4">Loading...</td></tr>
               ) : turfAdmins.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-4">No admins found</td></tr>
+                <tr><td colSpan={6} className="text-center py-4">No turfadmins found</td></tr>
               ) : turfAdmins.map(admin => (
                 <tr key={admin.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">{admin.name}</td>
@@ -268,6 +270,7 @@ const SuperAdminTurfAdminsPage = () => {
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-xl w-full max-w-md">
                 <h3 className="text-lg font-medium mb-4">Turf Admin Details</h3>
+                <h3 className="text-lg font-medium mb-4">turfadmin Details</h3>
                 <div className="space-y-2">
                   <div><strong>Name:</strong> {selectedAdmin.name}</div>
                   <div><strong>Email:</strong> {selectedAdmin.email}</div>
@@ -289,6 +292,7 @@ const SuperAdminTurfAdminsPage = () => {
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-xl w-full max-w-md">
                 <h3 className="text-lg font-medium mb-4">Edit Turf Admin</h3>
+                <h3 className="text-lg font-medium mb-4">Edit turfadmin</h3>
                 <div className="flex flex-col gap-2">
                   <input type="text" placeholder="Name" value={editAdmin.name || ''} onChange={e=>setEditAdmin({...editAdmin, name:e.target.value})} className="px-3 py-2 border rounded"/>
                   <input type="email" placeholder="Email" value={editAdmin.email || ''} onChange={e=>setEditAdmin({...editAdmin, email:e.target.value})} className="px-3 py-2 border rounded"/>
@@ -358,6 +362,7 @@ const SuperAdminTurfAdminsPage = () => {
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-xl w-full max-w-md">
                 <h3 className="text-lg font-medium mb-4">Create Turf Admin</h3>
+                <h3 className="text-lg font-medium mb-4">Create turfadmin</h3>
                 <div className="flex flex-col gap-2">
                   <input type="text" placeholder="Name" value={newAdmin.name} onChange={e=>setNewAdmin({...newAdmin, name:e.target.value})} className="px-3 py-2 border rounded"/>
                   <input type="email" placeholder="Email" value={newAdmin.email} onChange={e=>setNewAdmin({...newAdmin, email:e.target.value})} className="px-3 py-2 border rounded"/>

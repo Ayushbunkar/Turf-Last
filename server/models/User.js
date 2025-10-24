@@ -15,7 +15,9 @@ const userSchema = new mongoose.Schema(
   status: { type: String, enum: ['active', 'pending', 'blocked', 'suspended', 'inactive'], default: 'pending' },
     role: {
       type: String,
-      enum: ["user", "Turfadmin", "superadmin"],
+      // Accept common legacy and normalized role values. Keep both lowercase and a
+      // capitalized 'Turfadmin' entry for compatibility with older DB records.
+      enum: ["user", "admin", "turfadmin", "Turfadmin", "superadmin"],
       default: "user",
     },
     // Basic metrics (optional)

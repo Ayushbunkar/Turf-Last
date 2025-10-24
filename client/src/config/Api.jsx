@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from 'react-hot-toast';
 
 const api = axios.create({
   baseURL: "http://localhost:4500",
@@ -33,16 +34,31 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401 || status === 403) {
+    // If token is invalid or expired -> force logout
+    if (status === 401) {
       try {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       } catch (e) {
         // ignore
       }
-      // Show a simple alert / fallback — individual components may also show toasts
       try { window.location.href = '/login'; } catch (e) {}
+      return Promise.reject(error);
     }
+
+    // 403 Forbidden -> user is authenticated but not authorized for this resource.
+    // Don't clear credentials; show a friendly message and optionally send to /unauthorized
+    if (status === 403) {
+      try {
+        toast.error('You are not authorized to access this resource');
+        // navigate to an Unauthorized page if present (non-destructive)
+        try { window.location.href = '/unauthorized'; } catch (e) {}
+      } catch (e) {
+        // ignore toast failures
+      }
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   }
 );

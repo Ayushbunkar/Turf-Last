@@ -43,8 +43,10 @@ export const authorize = (...roles) => {
     if (!req.user) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    // Use optional chaining to avoid crashing if role missing
-    if (!roles.includes(req.user?.role)) {
+    // Compare roles case-insensitively to avoid mismatches like 'Turfadmin' vs 'turfadmin'
+    const userRole = String(req.user?.role || '').toLowerCase();
+    const allowed = roles.map(r => String(r).toLowerCase());
+    if (!allowed.includes(userRole)) {
       console.warn('Auth: authorization failed, required roles:', roles, 'user role:', req.user?.role);
       return res.status(403).json({ message: "You do not have permission to perform this action" });
     }
