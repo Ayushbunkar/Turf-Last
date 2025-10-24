@@ -82,12 +82,12 @@ const SuperAdminAnalytics = () => {
 
   return (
     <SuperAdminPageTemplate title="Analytics Dashboard" subtitle="Comprehensive platform insights and metrics">
-      <div className="bg-white pt-20 sm:pt-6 p-4 sm:p-6 rounded-xl shadow-md space-y-8">
+      <div className="bg-white mt-16 sm:pt-6 p-4 sm:p-6 rounded-xl shadow-md space-y-8">
 
         {/* Top Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-900">Analytics Dashboard</h1>
+            <h1 className="text-2xl font-extrabold text-gray-900">Analytics Dashboard</h1>
             <p className="text-gray-600 mt-1">Comprehensive platform insights and metrics</p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">

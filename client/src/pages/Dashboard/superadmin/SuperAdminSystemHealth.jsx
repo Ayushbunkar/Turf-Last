@@ -219,17 +219,18 @@ const SuperAdminSystemHealth = () => {
 
   return (
     <SuperAdminPageTemplate title="System Health Monitor" subtitle="Monitor server performance and system status" fullWidth={true} invertColors={true}>
-          {/* Header */}
-          <div className="flex items-center bg-white p-6 rounded-xl shadow-sm border space-y-6 justify-between mb-8 max-w-5xl mx-auto">
+      <div className="w-full min-w-0 overflow-x-hidden pt-20 sm:pt-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center bg-white p-6 rounded-xl shadow-sm border space-y-4 sm:space-y-0 justify-between mb-8 max-w-5xl mx-auto w-full">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">System Health Monitor</h1>
               <p className="text-gray-600 mt-1">Monitor server performance and system status</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0 w-full sm:w-auto">
               <select
                 value={refreshInterval}
                 onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value={10}>Refresh every 10s</option>
                 <option value={30}>Refresh every 30s</option>
@@ -238,18 +239,18 @@ const SuperAdminSystemHealth = () => {
               </select>
               <button
                 onClick={fetchSystemHealth}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Refresh Now</span>
               </button>
-              <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <button className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                 <Download className="w-4 h-4" />
                 <span>Export Report</span>
               </button>
             </div>
           </div>
-
+          </div>
           {/* System Overview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {metricCards.map((card, index) => {
@@ -260,13 +261,13 @@ const SuperAdminSystemHealth = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                  className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 min-w-0"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="p-3 rounded-lg bg-gray-100">
                       <Icon className="w-6 h-6 text-gray-600" />
                     </div>
-                    <div className="text-right">
+                    <div className="text-right min-w-0">
                       <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div 
                           className={`h-full ${card.bgColor} transition-all duration-300`}
@@ -311,7 +312,7 @@ const SuperAdminSystemHealth = () => {
                   </div>
                 </div>
               </div>
-              <div className="h-80">
+              <div className="h-64 sm:h-80 min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={performanceData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -349,7 +350,7 @@ const SuperAdminSystemHealth = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 min-w-0"
             >
               <h3 className="text-lg font-semibold text-gray-900 mb-6">System Statistics</h3>
               <div className="space-y-6">
@@ -405,7 +406,7 @@ const SuperAdminSystemHealth = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-100"
+              className="bg-white rounded-xl shadow-sm border border-gray-100 min-w-0"
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -421,20 +422,20 @@ const SuperAdminSystemHealth = () => {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-gray-50 rounded-lg min-w-0"
                     >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <div className="flex items-center space-x-4 min-w-0">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
                           <Globe className="w-5 h-5 text-blue-600" />
                         </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">{service.name}</h4>
-                          <div className="text-sm text-gray-600">
+                        <div className="min-w-0">
+                          <h4 className="font-medium text-gray-900 truncate">{service.name}</h4>
+                          <div className="text-sm text-gray-600 truncate">
                             Uptime: {service.uptime}% • Response: {service.responseTime}ms
                           </div>
                         </div>
                       </div>
-                      <div>
+                      <div className="mt-3 sm:mt-0">
                         {getServiceStatusBadge(service.status)}
                       </div>
                     </motion.div>

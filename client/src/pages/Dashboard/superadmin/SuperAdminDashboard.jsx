@@ -132,7 +132,7 @@ const SuperAdminDashboard = () => {
   return (
     <SuperAdminPageTemplate className="bg-gray-100">
       {/* Big card container */}
-      <div className="bg-white rounded-3xl shadow-xl p-8 min-h-screen">
+      <div className="bg-white rounded-3xl shadow-xl lg:mt-0 mt-16  p-8 min-h-screen">
         {/* Heading */}
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-gray-900">Super Admin Dashboard</h1>

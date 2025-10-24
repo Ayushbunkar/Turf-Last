@@ -332,7 +332,7 @@ const SuperAdminTurfsandVenues = () => {
   return (
     <SuperAdminPageTemplate title="Turfs & Venues" subtitle="Manage all turfs, venues and operations">
       {/* Main white container */}
-      <div className="bg-white rounded-2xl p-6 shadow-lg w-full">
+      <div className="bg-white rounded-2xl lg:mt-0 mt-16  p-6 shadow-lg w-full">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">

@@ -266,7 +266,7 @@ const SuperAdminSettings = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+            <h1 className="text-3xl font-bold text-white">Settings</h1>
             <p className="text-gray-600 mt-1">Manage platform settings and configurations</p>
           </div>
         </div>

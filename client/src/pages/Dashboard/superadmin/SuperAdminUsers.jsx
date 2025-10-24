@@ -162,9 +162,9 @@ const SuperAdminUsers = () => {
 
   return (
     <SuperAdminPageTemplate>
-      <div className="bg-white min-h-full p-6 rounded-xl shadow-sm">
+      <div className="bg-white lg:mt-0  min-h-full pt-16 p-6  rounded-xl shadow-sm">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-6">
+        <div className="flex   flex-col sm:flex-row sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900">User Management</h1>
             <p className="text-gray-600 mt-1">Manage and monitor all platform users</p>

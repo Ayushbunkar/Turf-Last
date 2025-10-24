@@ -263,7 +263,7 @@ const SuperAdminBookingManagement = () => {
 
   return (
     <SuperAdminPageTemplate>
-  <div className="bg-white pt-7 sm:pt-20 p-4 sm:p-6 rounded-xl shadow-sm border space-y-6">
+  <div className="bg-white pt-7 lg:mt-0 mt-16   p-4 sm:p-6 rounded-xl shadow-sm border space-y-6">
         {/* Header - force single-line layout */}
         <div className="flex  flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>

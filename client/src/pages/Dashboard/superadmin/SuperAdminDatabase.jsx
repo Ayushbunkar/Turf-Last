@@ -462,7 +462,7 @@ const SuperAdminDatabase = () => {
   return (
     <SuperAdminPageTemplate title="Database Management" subtitle="Monitor and manage database operations">
   {/* Header */}
-  <div className="flex flex-col sm:flex-row bg-white p-4 sm:p-6 rounded-xl shadow-sm items-start sm:items-center justify-between mb-8 gap-4 pt-20 sm:pt-6 w-full min-w-0">
+  <div className="flex flex-col sm:flex-row bg-white p-4 sm:p-6 rounded-xl shadow-sm items-start sm:items-center justify-between mb-8 gap-4 lg:mt-0 mt-16   w-full min-w-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Database Management</h1>
           <p className="text-gray-600 mt-1">Monitor and manage database operations</p>

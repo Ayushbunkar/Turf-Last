@@ -53,7 +53,7 @@ export default function SuperAdminNotifications() {
 
   return (
   <SuperAdminPageTemplate title="Notifications" subtitle="System alerts & AI insights" fullWidth={true} invertColors={true}>
-      <div className="p-4 sm:p-6 bg-white rounded-xl shadow-sm border pt-20 sm:pt-6">
+      <div className="p-4 sm:p-6 bg-white rounded-xl shadow-sm border mt-16 sm:pt-0">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Notifications</h1>
