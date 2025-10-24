@@ -461,17 +461,17 @@ const SuperAdminDatabase = () => {
 
   return (
     <SuperAdminPageTemplate title="Database Management" subtitle="Monitor and manage database operations">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row bg-white p-6 rounded-xl shadow-sm items-start md:items-center justify-between mb-8 gap-4">
+  {/* Header */}
+  <div className="flex flex-col sm:flex-row bg-white p-4 sm:p-6 rounded-xl shadow-sm items-start sm:items-center justify-between mb-8 gap-4 pt-20 sm:pt-6 w-full min-w-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Database Management</h1>
           <p className="text-gray-600 mt-1">Monitor and manage database operations</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
           <select
             value={selectedDatabase}
             onChange={(e) => setSelectedDatabase(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-gray-200 bg-white"
+            className="px-3 py-2 rounded-lg border border-gray-200 bg-white w-full sm:w-auto"
             aria-label="Select database"
           >
             <option value="all">All Databases</option>
@@ -480,23 +480,25 @@ const SuperAdminDatabase = () => {
             <option value="archive">Archive</option>
           </select>
 
-          <button
-            onClick={() => fetchDatabaseInfo({ force: true })}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            aria-label="Refresh database info"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => fetchDatabaseInfo({ force: true })}
+              className="flex items-center justify-center w-full sm:w-auto space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              aria-label="Refresh database info"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
 
-          <button
-            onClick={() => setShowBackupModal(true)}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            aria-haspopup="dialog"
-          >
-            <Download className="w-4 h-4" />
-            <span>Create Backup</span>
-          </button>
+            <button
+              onClick={() => setShowBackupModal(true)}
+              className="flex items-center justify-center w-full sm:w-auto space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              aria-haspopup="dialog"
+            >
+              <Download className="w-4 h-4" />
+              <span>Create Backup</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -537,9 +539,9 @@ const SuperAdminDatabase = () => {
             <div className="space-y-6">
               {/* Charts grid responsive */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg w-full min-w-0 overflow-hidden">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Database Size Trend</h3>
-                  <div style={{ height: 200 }}>
+                  <div className="h-48 sm:h-56 lg:h-52">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={[{ time: "Now", size: parseFloat(databaseStats.totalSize) || 0 }]}>
                         <CartesianGrid strokeDasharray="3 3" />
@@ -552,9 +554,9 @@ const SuperAdminDatabase = () => {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg w-full min-w-0 overflow-hidden">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Table Distribution</h3>
-                  <div style={{ height: 200 }}>
+                  <div className="h-48 sm:h-56 lg:h-52">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -576,9 +578,9 @@ const SuperAdminDatabase = () => {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg w-full min-w-0 overflow-hidden">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Record Growth</h3>
-                  <div style={{ height: 200 }}>
+                  <div className="h-48 sm:h-56 lg:h-52">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={[{ time: "Now", records: databaseStats.totalRecords }]}>
                         <CartesianGrid strokeDasharray="3 3" />
@@ -594,10 +596,10 @@ const SuperAdminDatabase = () => {
 
               {/* Connection gauge & quick stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gray-50 p-6 rounded-lg flex flex-col items-center">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg flex flex-col items-center w-full min-w-0">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Connection Pool Usage</h3>
-                  <div className="relative w-40 h-40 flex items-center justify-center">
-                    <svg width="160" height="160" viewBox="0 0 160 160">
+                  <div className="relative w-32 h-32 sm:w-40 sm:h-40 flex items-center justify-center">
+                    <svg width="160" height="160" viewBox="0 0 160 160" className="w-full h-full">
                       <circle cx="80" cy="80" r="70" fill="#F3F4F6" />
                       <circle
                         cx="80"
@@ -614,7 +616,7 @@ const SuperAdminDatabase = () => {
                         {databaseStats.connectionPoolPercent || 0}%
                       </text>
                     </svg>
-                    <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-gray-600 text-sm">Current Usage</span>
+                    <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-gray-600 text-sm">Current Usage</span>
                   </div>
                 </div>
 

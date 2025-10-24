@@ -291,20 +291,20 @@ const SuperAdminSupport = () => {
   return (
     <SuperAdminPageTemplate title="Support Management" subtitle="Manage customer support tickets and inquiries">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col pt-7 sm:flex-row sm:items-center justify-between mb-8 gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Support Management</h1>
+              <h1 className="text-3xl font-bold text-white">Support Management</h1>
               <p className="text-gray-600 mt-1">Manage customer support tickets and inquiries</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
               <button
                 onClick={fetchData}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full sm:w-auto flex items-center justify-center sm:justify-start space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Refresh</span>
               </button>
-              <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <button className="w-full sm:w-auto flex items-center justify-center sm:justify-start space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                 <Plus className="w-4 h-4" />
                 <span>Create Ticket</span>
               </button>
@@ -321,7 +321,7 @@ const SuperAdminSupport = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}
-                  className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-start justify-between"
+                  className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-start justify-between min-w-0"
                 >
                   <div className="flex items-center space-x-3 mb-2">
                     <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${card.color === 'green' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -345,8 +345,8 @@ const SuperAdminSupport = () => {
 
           {/* Navigation Tabs */}
           <div className="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8 px-6">
+              <div className="border-b border-gray-200">
+              <nav className="-mb-px flex flex-col sm:flex-row sm:space-x-8 px-4 sm:px-6">
                 {[
                   { id: 'tickets', label: 'Support Tickets', icon: MessageSquare },
                   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -357,7 +357,7 @@ const SuperAdminSupport = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                      className={`w-full sm:w-auto text-left py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
                         activeTab === tab.id
                           ? 'border-blue-500 text-blue-600'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -372,25 +372,25 @@ const SuperAdminSupport = () => {
             </div>
 
             {/* Filters */}
-            {activeTab === 'tickets' && (
-              <div className="p-6 border-b border-gray-200">
+              {activeTab === 'tickets' && (
+                <div className="p-6 border-b border-gray-200">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                    <div className="relative">
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full">
+                    <div className="relative w-full sm:w-auto">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input
                         type="text"
                         placeholder="Search tickets..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full sm:w-auto pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                     
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="all">All Status</option>
                       <option value="open">Open</option>
@@ -402,7 +402,7 @@ const SuperAdminSupport = () => {
                     <select
                       value={priorityFilter}
                       onChange={(e) => setPriorityFilter(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="all">All Priority</option>
                       <option value="low">Low</option>
@@ -437,8 +437,8 @@ const SuperAdminSupport = () => {
                         </button>
                       )}
                     </div>
-                  ) : (
-                    <div className="overflow-x-auto">
+                    ) : (
+                    <div className="overflow-x-auto min-w-0">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -473,7 +473,7 @@ const SuperAdminSupport = () => {
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-start space-x-3">
-                              <div className="flex-shrink-0 mt-1">
+                              <div className="shrink-0 mt-1">
                                 {getCategoryIcon(ticket.category)}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -504,7 +504,7 @@ const SuperAdminSupport = () => {
                           
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className="flex-shrink-0">
+                              <div className="shrink-0">
                                 <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                                   <User className="w-4 h-4 text-blue-600" />
                                 </div>
@@ -638,11 +638,11 @@ const SuperAdminSupport = () => {
             {/* Pagination */}
             {activeTab === 'tickets' && totalPages > 1 && (
               <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
-                <div className="flex justify-between items-center w-full">
+                <div className="flex flex-col sm:flex-row justify-between items-center w-full gap-3">
                   <button
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                   >
                     Previous
                   </button>
@@ -652,7 +652,7 @@ const SuperAdminSupport = () => {
                   <button
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                   >
                     Next
                   </button>

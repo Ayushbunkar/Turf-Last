@@ -53,15 +53,15 @@ export default function SuperAdminNotifications() {
 
   return (
   <SuperAdminPageTemplate title="Notifications" subtitle="System alerts & AI insights" fullWidth={true} invertColors={true}>
-      <div className="p-6 bg-white rounded-xl shadow-sm border">
-        <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="p-4 sm:p-6 bg-white rounded-xl shadow-sm border pt-20 sm:pt-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Notifications</h1>
             <p className="text-sm text-gray-500">Real-time system alerts and AI-suggested insights.</p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1 text-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+            <div className="inline-flex flex-wrap items-center gap-2 bg-gray-100 rounded-full px-2 py-1 text-sm">
               <button
                 onClick={() => setFilter('all')}
                 className={`px-2 py-1 rounded ${filter === 'all' ? 'bg-white shadow' : ''}`}
@@ -82,16 +82,17 @@ export default function SuperAdminNotifications() {
               </button>
             </div>
 
-            <button
-              onClick={markAllRead}
-              disabled={loading || notifications.length === 0}
-              className="px-3 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-500 text-sm disabled:opacity-60"
-            >
-              Mark all read
-            </button>
+            <div className="w-full sm:w-auto">
+              <button
+                onClick={markAllRead}
+                disabled={loading || notifications.length === 0}
+                className="w-full sm:w-auto px-3 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-500 text-sm disabled:opacity-60"
+              >
+                Mark all read
+              </button>
+            </div>
           </div>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <AnimatePresence>
             {loading && (
@@ -120,7 +121,7 @@ export default function SuperAdminNotifications() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8, scale: 0.98 }}
                 whileHover={{ scale: 1.02 }}
-                className="relative p-4 bg-white border rounded-xl shadow-sm flex flex-col gap-3"
+                className="relative p-4 bg-white border rounded-xl shadow-sm flex flex-col gap-3 w-full min-w-0"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
@@ -143,7 +144,7 @@ export default function SuperAdminNotifications() {
 
                     {n.ai && (
                       <motion.span
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-yellow-50 to-rose-50 text-rose-600 rounded-full text-xs font-medium"
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-linear-to-r from-yellow-50 to-rose-50 text-rose-600 rounded-full text-xs font-medium"
                         initial={{ scale: 1 }}
                         animate={{ scale: [1, 1.08, 1] }}
                         transition={{ duration: 1.2, repeat: Infinity }}

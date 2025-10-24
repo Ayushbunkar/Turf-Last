@@ -84,7 +84,7 @@ const SuperAdminSupport = lazy(() =>
 const SuperAdminSettings = lazy(() =>
   import("./pages/Dashboard/superadmin/SuperAdminSettings.jsx")
 );
-import ValidateRazorpay from './pages/Admin/ValidateRazorpay';
+import ValidateRazorpay from './pages/Dashboard/superadmin/ValidateRazorpay';
 
 // === EXTRA SUPERADMIN MODULES ===
 import SuperAdminNavbar from "./pages/Dashboard/superadmin/SuperAdminNavbar";

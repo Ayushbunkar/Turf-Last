@@ -28,7 +28,7 @@ const SuperAdminNavbar = ({ onMobileMenuToggle }) => {
       initial={{ y: -8, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.2 }}
-      className="fixed top-16 left-0 right-0 z-40 bg-white dark:bg-slate-900 border-b dark:border-slate-700 px-4 py-3"
+  className="fixed top-16 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b dark:border-slate-700 px-4 py-3"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

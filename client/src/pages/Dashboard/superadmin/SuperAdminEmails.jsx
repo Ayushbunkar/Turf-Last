@@ -320,15 +320,15 @@ const SuperAdminEmails = () => {
   return (
     <SuperAdminPageTemplate title="Email Management" subtitle="Create and manage email campaigns and templates">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-8 p-4 sm:p-0 pt-20 sm:pt-6 w-full min-w-0">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Email Management</h1>
-              <p className="text-gray-600 mt-1">Create and manage email campaigns and templates</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">Email Management</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">Create and manage email campaigns and templates</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={fetchData}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-center w-full sm:w-auto space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Refresh</span>
@@ -338,7 +338,7 @@ const SuperAdminEmails = () => {
                   setModalType(activeTab === 'templates' ? 'template' : 'campaign');
                   setShowCreateModal(true);
                 }}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center w-full sm:w-auto space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Create {activeTab === 'templates' ? 'Template' : 'Campaign'}</span>
@@ -347,16 +347,16 @@ const SuperAdminEmails = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {statCards.map((card, index) => {
               const Icon = card.icon;
               return (
-                <motion.div
+        <motion.div
                   key={card.title}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+          className="bg-white p-4 sm:p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 w-full min-w-0"
                 >
                   <div className="flex items-center justify-between mb-4">
                     {(() => {
@@ -388,9 +388,9 @@ const SuperAdminEmails = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
             <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8 px-6">
+              <nav className="-mb-px flex flex-wrap gap-2 px-4 sm:px-6">
                 {[
                   { id: 'campaigns', label: 'Email Campaigns', icon: Mail },
                   { id: 'templates', label: 'Templates', icon: FileText },
@@ -401,7 +401,7 @@ const SuperAdminEmails = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                      className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center space-x-2 ${
                         activeTab === tab.id
                           ? 'border-blue-500 text-blue-600'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -416,25 +416,25 @@ const SuperAdminEmails = () => {
             </div>
 
             {/* Filters */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                  <div className="relative">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="text"
                       placeholder={`Search ${activeTab}...`}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
                     />
                   </div>
-                  
+
                   {activeTab === 'campaigns' && (
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
                     >
                       <option value="all">All Status</option>
                       <option value="draft">Draft</option>
@@ -450,7 +450,7 @@ const SuperAdminEmails = () => {
             {/* Tab Content */}
             <div className="p-6">
               {activeTab === 'campaigns' && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto w-full">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -482,7 +482,7 @@ const SuperAdminEmails = () => {
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-start space-x-3">
-                              <div className="flex-shrink-0 mt-1">
+                              <div className="shrink-0 mt-1">
                                 <Mail className="w-5 h-5 text-gray-400" />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -574,7 +574,7 @@ const SuperAdminEmails = () => {
               )}
 
               {activeTab === 'templates' && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto w-full">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -674,33 +674,37 @@ const SuperAdminEmails = () => {
                 <div className="space-y-6">
                   {/* Analytics Charts */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 p-6 rounded-lg">
+                    <div className="bg-gray-50 p-4 sm:p-6 rounded-lg w-full min-w-0 overflow-hidden">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Performance (7 Days)</h3>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={analytics}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="sent" stroke="#3B82F6" strokeWidth={2} name="Sent" />
-                          <Line type="monotone" dataKey="opened" stroke="#10B981" strokeWidth={2} name="Opened" />
-                          <Line type="monotone" dataKey="clicked" stroke="#F59E0B" strokeWidth={2} name="Clicked" />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      <div className="h-48 sm:h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={analytics}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="sent" stroke="#3B82F6" strokeWidth={2} name="Sent" />
+                            <Line type="monotone" dataKey="opened" stroke="#10B981" strokeWidth={2} name="Opened" />
+                            <Line type="monotone" dataKey="clicked" stroke="#F59E0B" strokeWidth={2} name="Clicked" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
 
-                    <div className="bg-gray-50 p-6 rounded-lg">
-                      <h3 className="text-lg font-semibent text-gray-900 mb-4">Engagement Rates</h3>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={analytics}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="opened" fill="#10B981" name="Open Rate" />
-                          <Bar dataKey="clicked" fill="#F59E0B" name="Click Rate" />
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="bg-gray-50 p-4 sm:p-6 rounded-lg w-full min-w-0 overflow-hidden">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Engagement Rates</h3>
+                      <div className="h-48 sm:h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={analytics}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="opened" fill="#10B981" name="Open Rate" />
+                            <Bar dataKey="clicked" fill="#F59E0B" name="Click Rate" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
                   </div>
                 </div>

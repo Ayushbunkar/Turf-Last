@@ -1,31 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  User,
-  Lock,
-  Bell,
-  Globe,
-  Shield,
-  Database,
-  Mail,
-  Phone,
-  Save,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Check,
-  X,
-  AlertCircle,
-  Settings as SettingsIcon,
-  Palette,
-  Server,
-  Key,
-  Users,
-  Calendar,
-  IndianRupee,
-  FileText,
-  Camera
-} from "lucide-react";
+import { User, Lock, Bell, Shield, Save, RefreshCw, Eye, EyeOff, Settings as SettingsIcon } from "lucide-react";
 import SuperAdminPageTemplate from './SuperAdminPageTemplate';
 import toast from 'react-hot-toast';
 import superAdminService from '../../../services/superAdminService';
@@ -287,33 +262,36 @@ const SuperAdminSettings = () => {
 
   return (
     <SuperAdminPageTemplate title="Settings" subtitle="Manage platform settings and configurations">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-              <p className="text-gray-600 mt-1">Manage platform settings and configurations</p>
-            </div>
+      <div className="w-full min-w-0 overflow-x-hidden pt-20 sm:pt-0">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+            <p className="text-gray-600 mt-1">Manage platform settings and configurations</p>
           </div>
+        </div>
 
           {/* Settings Navigation */}
-          <div className="flex space-x-1 mb-8 bg-gray-200 p-1 rounded-lg">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
+          <div className="mb-8 bg-gray-200 p-1 rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:space-x-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full sm:w-auto text-left flex items-center space-x-2 px-4 py-3 sm:py-2 rounded-lg font-medium transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Tab Content */}
@@ -396,16 +374,16 @@ const SuperAdminSettings = () => {
                       </div>
                     )}
 
-                    <div className="flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                      >
-                        {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        <span>{saving ? 'Saving...' : 'Save Profile'}</span>
-                      </button>
-                    </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={saving}
+                            className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                          >
+                            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            <span>{saving ? 'Saving...' : 'Save Profile'}</span>
+                          </button>
+                        </div>
                   </form>
                 </div>
 
@@ -474,7 +452,7 @@ const SuperAdminSettings = () => {
                       <button
                         type="submit"
                         disabled={saving}
-                        className="flex items-center space-x-2 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                        className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                       >
                         {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                         <span>{saving ? 'Changing...' : 'Change Password'}</span>
@@ -493,12 +471,12 @@ const SuperAdminSettings = () => {
                 exit={{ opacity: 0, y: -20 }}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
               >
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                   <h3 className="text-lg font-semibold text-gray-900">System Settings</h3>
                   <button
                     onClick={handleSystemSettingsSave}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     <span>{saving ? 'Saving...' : 'Save Changes'}</span>
@@ -605,12 +583,12 @@ const SuperAdminSettings = () => {
                 exit={{ opacity: 0, y: -20 }}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
               >
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                   <h3 className="text-lg font-semibold text-gray-900">Notification Settings</h3>
                   <button
                     onClick={handleNotificationSettingsSave}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     <span>{saving ? 'Saving...' : 'Save Changes'}</span>
@@ -666,12 +644,12 @@ const SuperAdminSettings = () => {
                 exit={{ opacity: 0, y: -20 }}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
               >
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                   <h3 className="text-lg font-semibold text-gray-900">Security Settings</h3>
                   <button
                     onClick={handleSecuritySettingsSave}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     <span>{saving ? 'Saving...' : 'Save Changes'}</span>
@@ -743,7 +721,8 @@ const SuperAdminSettings = () => {
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
+      </AnimatePresence>
+  </div>
     </SuperAdminPageTemplate>
   );
 };
